@@ -1,4 +1,5 @@
 from algo.alignment import Alignment
+from algo.alignment_timestamped import AlignmentTimestamped
 from algo.trie import Trie
 
 class StateItem:
@@ -7,11 +8,11 @@ class StateItem:
         self,
         cost: int,
         trie: Trie,
-        alignment: Alignment
+        alignment: AlignmentTimestamped
     ):
         self.cost = cost
         self.trie: Trie = trie
-        self.alignment: Alignment = alignment
+        self.alignment: AlignmentTimestamped = alignment
 
     def __str__(self):
         return f"Cost: {self.cost}\n{self.alignment}\n{self.trie}"
