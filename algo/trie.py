@@ -1,6 +1,7 @@
 from typing import List
 
 from algo.trie_metrics import TrieMetrics
+from algo.trie_node import TrieNode
 
 END_MARKER = "<end>"
 
@@ -12,11 +13,11 @@ class Trie:
             self.data = data
         self.node_metrics = None
 
-    def build(self, traces: List[List[str]]):
+    def build(self, traces: List[List[TrieNode]]):
         for trace in traces:
             self.insert(trace)
 
-    def insert(self, trace: List[str]):
+    def insert(self, trace: List[TrieNode]):
         node = self.data
         for activity in trace:
             if activity not in node: node[activity] = Trie()
@@ -54,13 +55,13 @@ class Trie:
         self.node_metrics = metrics
         return metrics
 
-    def next_items(self) -> List[str]:
+    def next_items(self) -> List[TrieNode]:
         return list(self.data.keys())
 
     def next_children(self) -> List['Trie']:
         return list(self.data.values())
 
-    def traverse(self, activity: str) -> 'Trie':
+    def traverse(self, activity: TrieNode) -> 'Trie':
         return self.data[activity]
 
     def is_empty(self):

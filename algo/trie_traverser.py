@@ -1,7 +1,8 @@
 from collections import deque
 from typing import List
 
-from algo.trie import Trie, END_MARKER
+from algo.trie import Trie
+from algo.trie_node import TrieNode
 
 
 class TrieTraverser:
@@ -9,7 +10,7 @@ class TrieTraverser:
     def __init__(self, trie: Trie):
         self.trie: Trie = trie
 
-    def find_activity_in_trie(self, activity: str) -> tuple[Trie | None, int]:
+    def find_activity_in_trie(self, activity: TrieNode) -> tuple[Trie | None, int]:
         if activity in self.trie.next_items():
             return self.trie, 0
 
