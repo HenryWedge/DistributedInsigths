@@ -12,7 +12,7 @@ class Trie:
             self.data = data
         self.node_metrics = None
 
-    def build(self, traces):
+    def build(self, traces: List[List[str]]):
         for trace in traces:
             self.insert(trace)
 
@@ -23,7 +23,7 @@ class Trie:
             node = node[activity]
         node[END_MARKER] = True
 
-    def annotate_path_to_end_cost(self, trie):
+    def annotate_path_to_end_cost(self, trie) -> TrieMetrics:
         child_metrics = [self.annotate_path_to_end_cost(v) for k, v in trie.items() if k != END_MARKER]
         number_of_leaves = len([k for k, v in trie.items() if k == END_MARKER])
         if END_MARKER in trie:
@@ -53,6 +53,12 @@ class Trie:
         metrics = TrieMetrics(min_cost=min_dist, avg_cost=average_cost)
         self.node_metrics = metrics
         return metrics
+
+    def next_items(self) -> List[str]:
+        return list(self.data.keys())
+
+    def traverse(self, activity: str) -> 'Trie':
+        return self.data[activity]
 
     def get_rest_cost(self):
         return self.node_metrics
