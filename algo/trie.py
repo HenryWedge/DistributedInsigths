@@ -57,14 +57,25 @@ class Trie:
     def next_items(self) -> List[str]:
         return list(self.data.keys())
 
+    def next_children(self) -> List['Trie']:
+        return list(self.data.values())
+
     def traverse(self, activity: str) -> 'Trie':
         return self.data[activity]
+
+    def is_empty(self):
+        return len(self.data) == 1 and END_MARKER in self.data
 
     def get_rest_cost(self):
         return self.node_metrics
 
     def __str__(self):
-        return str(self.data)
+        result = "["
+        if self.next_children():
+            for key in self.data:
+                result += f"{str(key)}->{str(self.data[key])}"
+        result += "]"
+        return result
 
     def __hash__(self):
         return hash(self.data)

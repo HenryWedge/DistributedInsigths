@@ -16,3 +16,6 @@ class StateExplorer:
 
     def insert_state(self, state):
         heapq.heappush(self.heap, state)
+
+    def get_all_states(self) -> List[StateItem]:
+        return self.heap

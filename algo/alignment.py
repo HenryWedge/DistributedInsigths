@@ -15,7 +15,8 @@ class Alignment:
 
     def model_move(self, activity):
         self.model_moves.append(SKIP)
+        self.model_moves.append(activity)
         self.log_moves.append(activity)
 
     def __str__(self):
-        return f"{self.model_moves}\n{self.log_moves}"
+        return f"{self.log_moves}\n{self.model_moves}"

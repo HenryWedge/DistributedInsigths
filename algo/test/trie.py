@@ -15,6 +15,7 @@ class TrieTest(unittest.TestCase):
         testee.insert(["B", "E", "G", "F"])
         testee.annotate_path_to_end_cost(testee.data)
         print(testee.next_items())
+        print(testee.next_children())
         print(testee.get_rest_cost().min_cost)
         print(testee.get_rest_cost().avg_cost)
 
