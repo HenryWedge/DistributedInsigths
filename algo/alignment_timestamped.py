@@ -9,3 +9,6 @@ class AlignmentTimestamped:
 
     def __lt__(self, other):
         return self.timestamp < other.timestamp
+
+    def __str__(self):
+        return f"({self.node},{self.timestamp},{str(self.alignment)})"

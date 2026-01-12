@@ -8,8 +8,8 @@ from algo.trie import Trie
 from algo.trie_node import Node
 
 class InsightNode:
-    def __init__(self, node_id: str, network: Network):
-        self.local_trie = Trie()
+    def __init__(self, trie: Trie, node_id: str, network: Network):
+        self.local_trie = trie
         self.network: Network = network
         self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.node_id = node_id
@@ -21,19 +21,20 @@ class InsightNode:
             )
         )
 
-    def get_alignment(self) -> AlignmentTimestamped:
+    def get_alignment(self) -> AlignmentTimestamped | None:
         state_item = self.state_explorer.top()
-        return AlignmentTimestamped(
-            alignment=state_item.alignment.alignment,
-            timestamp=0,
-            node=Node(self.node_id)
-        )
+        if state_item.alignment.alignment.is_empty():
+            return None
+        return state_item.alignment
 
     def process_event(self, event):
         alignments = []
         for node in self.network.get_all_nodes():
-            alignments.append(node.move_event_data_to_alignment())
-        latest_alignment = max(alignments)
-        self.state_explorer.top()
-        self.state_explorer = StateExplorer(StateItem(0, self.local_trie[latest_alignment.node], latest_alignment))
+            alignment = node.get_alignment()
+            if alignment is not None:
+                alignments.append(alignment)
+        if alignments:
+            latest_alignment = max(alignments)
+            self.state_explorer.top()
+            self.state_explorer = StateExplorer(StateItem(0, self.local_trie[latest_alignment.node], latest_alignment))
         self.alignment_builder.build_alignment(event, self.state_explorer)
