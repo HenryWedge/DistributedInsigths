@@ -20,7 +20,6 @@ class Trie:
         for activity in trace:
             if activity not in node: node[activity] = Trie()
             node = node[activity]
-        node[EndActivity()] = None
 
     def annotate_path_to_end_cost(self, trie) -> TrieMetrics:
         child_metrics = [self.annotate_path_to_end_cost(v) for k, v in trie.items() if not k.is_end()]
