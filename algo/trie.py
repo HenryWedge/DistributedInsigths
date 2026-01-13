@@ -1,9 +1,7 @@
 from typing import List
 
 from algo.trie_metrics import TrieMetrics
-from algo.trie_node import TrieNode
-
-END_MARKER = "<end>"
+from algo.trie_node import TrieNode, EndActivity
 
 class Trie:
     def __init__(self, data=None):
@@ -22,12 +20,12 @@ class Trie:
         for activity in trace:
             if activity not in node: node[activity] = Trie()
             node = node[activity]
-        node[END_MARKER] = True
+        node[EndActivity()] = None
 
     def annotate_path_to_end_cost(self, trie) -> TrieMetrics:
-        child_metrics = [self.annotate_path_to_end_cost(v) for k, v in trie.items() if k != END_MARKER]
-        number_of_leaves = len([k for k, v in trie.items() if k == END_MARKER])
-        if END_MARKER in trie:
+        child_metrics = [self.annotate_path_to_end_cost(v) for k, v in trie.items() if not k.is_end()]
+        number_of_leaves = len([k for k, v in trie.items() if k.is_end()])
+        if EndActivity() in trie:
             if len(trie) == 1 and not child_metrics:
                 return self._mark_leave()
             else:
@@ -65,7 +63,7 @@ class Trie:
         return self.data[activity]
 
     def is_empty(self):
-        return len(self.data) == 1 and END_MARKER in self.data
+        return len(self.data) == 1 and EndActivity() in self.data
 
     def get_rest_cost(self):
         return self.node_metrics

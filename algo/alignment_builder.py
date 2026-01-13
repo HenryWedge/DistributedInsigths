@@ -18,7 +18,9 @@ class AlignmentBuilder:
 
     def _sync_move(self, event: Event, state: StateItem, state_explorer: StateExplorer):
         current_alignment = self._move_event_data_to_alignment(event, state)
-        new_state = StateItem(state.cost, state.trie.traverse(event.activity), current_alignment)
+        activity = event.activity
+        current_alignment.alignment.sync_move(activity)
+        new_state = StateItem(state.cost, state.trie.traverse(activity), current_alignment)
         state_explorer.insert_state(new_state)
 
     def _log_move(self, event: Event, state: StateItem, state_explorer: StateExplorer):
@@ -39,7 +41,6 @@ class AlignmentBuilder:
 
     def _move_event_data_to_alignment(self, event: Event, state: StateItem) -> AlignmentTimestamped:
         current_alignment = deepcopy(state.alignment)
-        current_alignment.alignment.sync_move(event.activity)
         current_alignment.timestamp = event.time
         current_alignment.node = Node(event.location)
         return current_alignment

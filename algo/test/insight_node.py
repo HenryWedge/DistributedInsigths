@@ -32,12 +32,10 @@ class InsightNodeTestCase(unittest.TestCase):
 
         n1.process_event(Event(activity=Activity("A"), location="n1", time=0))
         n2.process_event(Event(activity=Activity("B"), location="n2", time=1))
-        n3.process_event(Event(activity=Activity("C"), location="n3", time=2))
+        #n3.process_event(Event(activity=Activity("C"), location="n3", time=2))
         n1.process_event(Event(activity=Activity("D"), location="n1", time=3))
 
         print(n1.get_alignment())
-
-
 
 if __name__ == '__main__':
     unittest.main()

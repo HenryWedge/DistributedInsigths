@@ -1,5 +1,7 @@
 from abc import ABC
 
+END_MARKER = "<end>"
+
 class TrieNode(ABC):
     def __init__(self, content):
         self.content = content
@@ -8,6 +10,9 @@ class TrieNode(ABC):
         return self.content
 
     def is_activity(self):
+        pass
+
+    def is_end(self):
         pass
 
     def __str__(self):
@@ -27,10 +32,25 @@ class Activity(TrieNode):
     def is_activity(self):
         return True
 
+    def is_end(self):
+        return False
+
+class EndActivity(TrieNode):
+    def __init__(self):
+        super().__init__(END_MARKER)
+
+    def is_activity(self):
+        return True
+
+    def is_end(self):
+        return True
 
 class Node(TrieNode):
     def __init__(self, content):
         super().__init__(content)
 
     def is_activity(self):
+        return False
+
+    def is_end(self):
         return False

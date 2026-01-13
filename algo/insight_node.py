@@ -1,4 +1,4 @@
-from algo.alignment import Alignment
+from algo.alignment import Alignment, SKIP_NODE_COST
 from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
 from algo.network import Network
@@ -36,5 +36,9 @@ class InsightNode:
         if alignments:
             latest_alignment = max(alignments)
             self.state_explorer.top()
-            self.state_explorer = StateExplorer(StateItem(0, self.local_trie[latest_alignment.node], latest_alignment))
+            if latest_alignment.node in self.local_trie:
+                self.state_explorer = StateExplorer(StateItem(latest_alignment.alignment.cost, self.local_trie[latest_alignment.node], latest_alignment))
+            else:
+                # TODO hrei here a special cost is needed
+                self.state_explorer = StateExplorer(StateItem(latest_alignment.alignment.cost + SKIP_NODE_COST, self.local_trie, latest_alignment))
         self.alignment_builder.build_alignment(event, self.state_explorer)

@@ -22,7 +22,7 @@ class TrieTraverser:
         while queue:
             current_trie = queue.popleft()
 
-            if current_trie[0].is_empty():
+            if not current_trie[0] or current_trie[0].is_empty():
                 continue
 
             if activity in current_trie[0].next_items():

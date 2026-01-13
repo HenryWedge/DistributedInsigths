@@ -1,4 +1,3 @@
-from algo.alignment import Alignment
 from algo.alignment_timestamped import AlignmentTimestamped
 from algo.trie import Trie
 
