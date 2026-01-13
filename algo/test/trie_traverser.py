@@ -8,8 +8,8 @@ class TrieTraverserTest(unittest.TestCase):
 
     def test_trie_traverser(self):
         trie = Trie()
-        trie.insert(["A", "B", "C", "D"])
-        trie.insert(["A", "B", "C", "E"])
+        trie.insert_trace(["A", "B", "C", "D"])
+        trie.insert_trace(["A", "B", "C", "E"])
         trie_traverser = TrieTraverser(trie)
         print(trie_traverser.find_activity_in_trie("E"))
 

@@ -7,12 +7,12 @@ class TrieTest(unittest.TestCase):
 
     def test_build_trie(self):
         testee = Trie()
-        testee.insert(["A"])
-        testee.insert(["A", "B"])
-        testee.insert(["A", "B", "D"])
-        testee.insert(["A", "C", "D"])
-        testee.insert(["A", "C", "E"])
-        testee.insert(["B", "E", "G", "F"])
+        testee.insert_trace(["A"])
+        testee.insert_trace(["A", "B"])
+        testee.insert_trace(["A", "B", "D"])
+        testee.insert_trace(["A", "C", "D"])
+        testee.insert_trace(["A", "C", "E"])
+        testee.insert_trace(["B", "E", "G", "F"])
         testee.annotate_path_to_end_cost(testee.data)
         print(testee.next_items())
         print(testee.next_children())

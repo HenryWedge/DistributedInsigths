@@ -13,14 +13,14 @@ class InsightNodeTestCase(unittest.TestCase):
         network = Network()
 
         trie1: Trie = Trie()
-        trie1.insert([Activity("A")])
-        trie1.insert([Node("n3"), Activity("D")])
+        trie1.insert_trace([Activity("A")])
+        trie1.insert_trace([Node("n3"), Activity("D")])
 
         trie2: Trie = Trie()
-        trie2.insert([Node("n1"), Activity("B")])
+        trie2.insert_trace([Node("n1"), Activity("B")])
 
         trie3: Trie = Trie()
-        trie3.insert([Node("n2"), Activity("C")])
+        trie3.insert_trace([Node("n2"), Activity("C")])
 
         n1 = InsightNode(trie=trie1, node_id="n1", network=network)
         n2 = InsightNode(trie=trie2, node_id="n2", network=network)
@@ -32,7 +32,7 @@ class InsightNodeTestCase(unittest.TestCase):
 
         n1.process_event(Event(activity=Activity("A"), location="n1", time=0))
         n2.process_event(Event(activity=Activity("B"), location="n2", time=1))
-        #n3.process_event(Event(activity=Activity("C"), location="n3", time=2))
+        n3.process_event(Event(activity=Activity("C"), location="n3", time=2))
         n1.process_event(Event(activity=Activity("D"), location="n1", time=3))
 
         print(n1.get_alignment())

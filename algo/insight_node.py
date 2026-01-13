@@ -8,11 +8,12 @@ from algo.trie import Trie
 from algo.trie_node import Node
 
 class InsightNode:
+
     def __init__(self, trie: Trie, node_id: str, network: Network):
-        self.local_trie = trie
-        self.network: Network = network
-        self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.node_id = node_id
+        self.network: Network = network
+        self.local_trie = trie
+        self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.state_explorer = StateExplorer(
             StateItem(
                 0, self.local_trie, AlignmentTimestamped(
@@ -39,6 +40,6 @@ class InsightNode:
             if latest_alignment.node in self.local_trie:
                 self.state_explorer = StateExplorer(StateItem(latest_alignment.alignment.cost, self.local_trie[latest_alignment.node], latest_alignment))
             else:
-                # TODO hrei here a special cost is needed
+                # TODO hrei here we have to quantify the Real Skip_node_cost
                 self.state_explorer = StateExplorer(StateItem(latest_alignment.alignment.cost + SKIP_NODE_COST, self.local_trie, latest_alignment))
         self.alignment_builder.build_alignment(event, self.state_explorer)

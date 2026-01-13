@@ -13,9 +13,9 @@ class Trie:
 
     def build(self, traces: List[List[TrieNode]]):
         for trace in traces:
-            self.insert(trace)
+            self.insert_trace(trace)
 
-    def insert(self, trace: List[TrieNode]):
+    def insert_trace(self, trace: List[TrieNode]):
         node = self.data
         for activity in trace:
             if activity not in node: node[activity] = Trie()

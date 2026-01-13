@@ -9,7 +9,7 @@ class InsightAlgorithmTestCase(unittest.TestCase):
 
     def test_sync_moves(self):
         trie = Trie()
-        trie.insert([Activity('A'), Activity('B'), Activity('C')])
+        trie.insert_trace([Activity('A'), Activity('B'), Activity('C')])
         testee = InsightAlgorithm(trie)
         testee.process_event(Activity('A'))
         testee.process_event(Activity('B'))
@@ -18,7 +18,7 @@ class InsightAlgorithmTestCase(unittest.TestCase):
 
     def test_log_moves(self):
         trie = Trie()
-        trie.insert([Activity('A'), Activity('B'), Activity('C')])
+        trie.insert_trace([Activity('A'), Activity('B'), Activity('C')])
         testee = InsightAlgorithm(trie)
         testee.process_event(Activity('A'))
         testee.process_event(Activity('B'))
@@ -28,7 +28,7 @@ class InsightAlgorithmTestCase(unittest.TestCase):
 
     def test_model_moves(self):
         trie = Trie()
-        trie.insert([Activity('A'), Activity('B'), Activity('C')])
+        trie.insert_trace([Activity('A'), Activity('B'), Activity('C')])
         testee = InsightAlgorithm(trie)
         testee.process_event(Activity('A'))
         testee.process_event(Activity('C'))
