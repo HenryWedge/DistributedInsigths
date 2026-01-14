@@ -1,3 +1,5 @@
+from typing import Dict
+
 from algo.alignment import Alignment, SKIP_NODE_COST
 from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
@@ -14,32 +16,38 @@ class InsightNode:
         self.network: Network = network
         self.local_trie = trie
         self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
-        self.state_explorer = StateExplorer(
+        self.state_explorer: Dict[str, StateExplorer] = {}
+
+    def get_alignment(self, case_id) -> AlignmentTimestamped | None:
+        if case_id not in self.state_explorer:
+            return None
+        state_item = self.state_explorer[case_id].top()
+        return state_item.alignment
+
+    def process_event(self, event):
+        case_id = event.case_id
+        if case_id not in self.state_explorer:
+            self._init_state_for_case(case_id)
+        alignments = []
+        for node in self.network.get_all_nodes():
+            alignment = node.get_alignment(case_id)
+            if alignment is not None:
+                alignments.append(alignment)
+        if alignments:
+            latest_alignment = max(alignments)
+            self.state_explorer[case_id].top()
+            if latest_alignment.node in self.local_trie:
+                self.state_explorer[case_id] = StateExplorer(StateItem(latest_alignment.alignment.cost, self.local_trie[latest_alignment.node], latest_alignment))
+            else:
+                # TODO hrei here we have to quantify the Real Skip_node_cost
+                self.state_explorer[case_id] = StateExplorer(StateItem(latest_alignment.alignment.cost + SKIP_NODE_COST, self.local_trie, latest_alignment))
+        self.alignment_builder.build_alignment(event, self.state_explorer[case_id])
+
+    def _init_state_for_case(self, case_id):
+        self.state_explorer[case_id] = StateExplorer(
             StateItem(
                 0, self.local_trie, AlignmentTimestamped(
                     alignment=Alignment(), timestamp=-1, node=Node(self.node_id)
                 )
             )
         )
-
-    def get_alignment(self) -> AlignmentTimestamped | None:
-        state_item = self.state_explorer.top()
-        if state_item.alignment.alignment.is_empty():
-            return None
-        return state_item.alignment
-
-    def process_event(self, event):
-        alignments = []
-        for node in self.network.get_all_nodes():
-            alignment = node.get_alignment()
-            if alignment is not None:
-                alignments.append(alignment)
-        if alignments:
-            latest_alignment = max(alignments)
-            self.state_explorer.top()
-            if latest_alignment.node in self.local_trie:
-                self.state_explorer = StateExplorer(StateItem(latest_alignment.alignment.cost, self.local_trie[latest_alignment.node], latest_alignment))
-            else:
-                # TODO hrei here we have to quantify the Real Skip_node_cost
-                self.state_explorer = StateExplorer(StateItem(latest_alignment.alignment.cost + SKIP_NODE_COST, self.local_trie, latest_alignment))
-        self.alignment_builder.build_alignment(event, self.state_explorer)

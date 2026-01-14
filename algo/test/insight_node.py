@@ -30,12 +30,12 @@ class InsightNodeTestCase(unittest.TestCase):
         network.add_node("n2", n2)
         network.add_node("n3", n3)
 
-        n1.process_event(Event(activity=Activity("A"), location="n1", time=0))
-        n2.process_event(Event(activity=Activity("B"), location="n2", time=1))
-        #n3.process_event(Event(activity=Activity("C"), location="n3", time=2))
-        n1.process_event(Event(activity=Activity("D"), location="n1", time=3))
+        n1.process_event(Event(case_id="case1", activity=Activity("A"), location="n1", time=0))
+        #n2.process_event(Event(case_id="case1", activity=Activity("B"), location="n2", time=1))
+        n3.process_event(Event(case_id="case1", activity=Activity("C"), location="n3", time=2))
+        n1.process_event(Event(case_id="case1", activity=Activity("D"), location="n1", time=3))
 
-        print(n1.get_alignment())
+        print(n1.get_alignment("case1"))
 
 if __name__ == '__main__':
     unittest.main()
