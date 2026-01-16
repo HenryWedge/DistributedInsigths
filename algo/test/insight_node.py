@@ -35,7 +35,8 @@ class InsightNodeTestCase(unittest.TestCase):
         n3.process_event(Event(case_id="case1", activity=Activity("C"), location="n3", time=2))
         n1.process_event(Event(case_id="case1", activity=Activity("D"), location="n1", time=3))
 
-        print(n1.get_alignment("case1"))
+        for alignment in n1.get_alignments("case1", 3):
+            print(alignment)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,7 +1,7 @@
 from algo.alignment import Alignment
 from algo.trie_node import Node
 
-class AlignmentTimestamped:
+class AlignmentInformation:
     def __init__(self, alignment: Alignment, timestamp: int, node: Node):
         self.alignment: Alignment = alignment
         self.timestamp: int = timestamp
@@ -12,3 +12,6 @@ class AlignmentTimestamped:
 
     def __str__(self):
         return f"({self.node},{self.timestamp},{str(self.alignment)})"
+
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp and self.alignment == other.alignment and self.node == other.node

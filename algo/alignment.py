@@ -29,3 +29,6 @@ class Alignment:
 
     def __str__(self):
         return f"<log:{self.log_moves},mdl:{self.model_moves},cst:{self.cost}>"
+
+    def __eq__(self, other):
+        return self.model_moves == other.model_moves and self.log_moves == other.log_moves and self.cost == other.cost
