@@ -22,9 +22,9 @@ class Trie:
             node = node[activity]
 
     def annotate_path_to_end_cost(self, trie) -> TrieMetrics:
-        child_metrics = [self.annotate_path_to_end_cost(v) for k, v in trie.items() if not k.is_end()]
-        number_of_leaves = len([k for k, v in trie.items() if k.is_end()])
-        if EndActivity() in trie:
+        child_metrics = [self.annotate_path_to_end_cost(v) for k, v in trie.items() if v.data]
+        number_of_leaves = len([k for k, v in trie.items() if not v.data])
+        if number_of_leaves > 0:
             if len(trie) == 1 and not child_metrics:
                 return self._mark_leave()
             else:
@@ -32,14 +32,14 @@ class Trie:
         return self._mark_inner_node(child_metrics)
 
     def _mark_leave(self) -> TrieMetrics:
-        metrics = TrieMetrics(min_cost=0, avg_cost=0)
+        metrics = TrieMetrics(min_cost=1, avg_cost=1)
         self.node_metrics = metrics
         return metrics
 
     def _mark_inner_node_with_leaf(self, child_metrics, number_of_leaves) -> TrieMetrics:
         average_cost = 1 + sum([child_metric.avg_cost for child_metric in child_metrics]) / (len(child_metrics) + number_of_leaves)
 
-        metrics = TrieMetrics(min_cost=0, avg_cost=average_cost)
+        metrics = TrieMetrics(min_cost=1, avg_cost=average_cost)
         self.node_metrics = metrics
 
         return metrics
