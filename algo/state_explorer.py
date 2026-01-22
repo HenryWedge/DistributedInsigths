@@ -8,7 +8,7 @@ class StateExplorer:
         self.heap: List[StateItem] = [initial_state]
         self.max_heap_size = 10
 
-    def  get_next_state(self) -> StateItem:
+    def get_next_state(self) -> StateItem:
         return self.heap.pop()
 
     def is_empty(self) -> bool:
@@ -26,3 +26,7 @@ class StateExplorer:
 
     def get_all_states(self) -> List[StateItem]:
         return self.heap
+
+    def prune(self):
+        #pass
+        self.heap = self.heap[:5]

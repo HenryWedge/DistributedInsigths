@@ -1,10 +1,6 @@
 import random
-
 import pm4py
-
-from algo.event_log import EventLog
 from utility.converter import Converter
-
 
 class EventLogSplitter:
 
@@ -29,7 +25,7 @@ class EventLogSplitter:
         return split_index
 
     def get_training_data(self):
-        return self.log.filter_case_ids(self.case_ids[1:100])
+        return self.log.filter_case_ids(self.case_ids[:100])
 
     def get_test_data(self):
-        return self.log.filter_case_ids(self.case_ids[-30:])
+        return self.log.filter_case_ids(self.case_ids[-100:])

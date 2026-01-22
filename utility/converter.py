@@ -1,6 +1,5 @@
 from pm4py.objects.log.obj import EventLog as Pm4PyEventLog, Trace
 from pm4py.objects.log.obj import Event as Pm4PyEvent
-from pm4py.objects.conversion.log import converter as log_converter
 from pm4py.util import constants
 import pandas as pd
 
