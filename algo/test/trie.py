@@ -2,7 +2,6 @@ import unittest
 
 from algo.trie import Trie
 
-
 class TrieTest(unittest.TestCase):
 
     def test_build_trie(self):

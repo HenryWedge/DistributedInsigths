@@ -10,7 +10,10 @@ from algo.trie_traverser import TrieTraverser
 class AlignmentBuilder:
     def build_alignment(self, event: Event, state_explorer: StateExplorer):
         state: StateItem = state_explorer.get_next_state()
-        if event.activity in state.trie.next_items():
+
+        if not state.trie:
+            self._log_move(event, state, state_explorer)
+        elif event.activity in state.trie.next_items():
             self._sync_move(event, state, state_explorer)
         else:
             self._log_move(event, state, state_explorer)

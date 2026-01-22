@@ -1,0 +1,52 @@
+from pm4py.objects.log.obj import EventLog as Pm4PyEventLog, Trace
+from pm4py.objects.log.obj import Event as Pm4PyEvent
+from pm4py.objects.conversion.log import converter as log_converter
+from pm4py.util import constants
+import pandas as pd
+
+from algo.event import Event
+
+from algo.event_log import EventLog
+
+
+class Converter:
+
+    def to_event_log(self, event_log: Pm4PyEventLog):
+        el = EventLog()
+        for trace in event_log:
+            for event in trace:
+                el.add_event(self.to_event(event, trace._attributes["concept:name"]))
+        return el
+
+    def to_event(self, pm4py_event: Pm4PyEvent, case_id) -> Event:
+        return Event(
+            time=pm4py_event["time:timestamp"],
+            activity=pm4py_event["concept:name"],
+            case_id=case_id,
+            location=""
+        )
+
+    def from_event_log(self, el: EventLog) -> Pm4PyEventLog:
+        event_log = Pm4PyEventLog()
+        traces = {}
+
+        for case_id, events in el.traces.items():
+            if case_id not in traces:
+                new_trace = Trace()
+                new_trace.attributes[constants.CASE_CONCEPT_NAME] = case_id
+                traces[case_id] = new_trace
+            for event in events:
+                traces[case_id].append(self.from_event(event))
+
+        for trace in traces:
+            event_log.append(traces[trace])
+
+        return Pm4PyEventLog(event_log)
+
+    def from_event(self, event: Event) -> Pm4PyEvent:
+        pm4py_event = Pm4PyEvent()
+        pm4py_event["concept:name"] = event.activity
+        pm4py_event["time:timestamp"] = pd.Timestamp(event.time)
+        # pm4pyEvent["resource"] = event.node
+        pm4py_event["case:concept:name"] = event.case_id
+        return pm4py_event

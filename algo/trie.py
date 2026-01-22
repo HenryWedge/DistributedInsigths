@@ -55,6 +55,9 @@ class Trie:
     def next_items(self) -> List[TrieNode]:
         return list(self.data.keys())
 
+    def has_next_items(self):
+        return bool(self.data.keys())
+
     def next_children(self) -> List['Trie']:
         return list(self.data.values())
 
