@@ -10,8 +10,6 @@ class GroundTruthAlignmentsTest(unittest.TestCase):
     def test_ground_truth_alignments(self):
         testee = DistributedAlignments()
         event_log_splitter = EventLogSplitter("datasets/Sepsis.xes")
-        event_log_train = Converter().from_event_log(event_log_splitter.get_training_data())
-        event_log_test = Converter().from_event_log(event_log_splitter.get_test_data())
         testee.mine_process_model(event_log_splitter.get_training_data())
         testee.calculate_alignments(event_log_splitter.get_test_data())
         print("Done")

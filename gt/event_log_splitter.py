@@ -32,4 +32,4 @@ class EventLogSplitter:
         return self.log.filter_case_ids(self.case_ids[1:100])
 
     def get_test_data(self):
-        return self.log.filter_case_ids(self.case_ids[100:])
+        return self.log.filter_case_ids(self.case_ids[-1:])

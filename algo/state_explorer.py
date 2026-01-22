@@ -12,7 +12,7 @@ class StateExplorer:
         return self.heap.pop()
 
     def is_empty(self) -> bool:
-        return bool(self.heap)
+        return not bool(self.heap)
 
     def top(self, n=0) -> List[StateItem] | StateItem:
         if n == 0:

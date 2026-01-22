@@ -24,5 +24,3 @@ class DistributedAlignments:
         for trace in event_log.traces:
             for event in event_log.traces[trace]:
                 insight_node.process_event(event)
-
-

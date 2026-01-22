@@ -41,8 +41,11 @@ class InsightNode:
             else:
                 # TODO hrei here we have to quantify the Real Skip_node_cost
                 self.state_explorer[case_id] = StateExplorer(StateItem(latest_alignment.alignment.cost + SKIP_NODE_COST, self.local_trie, latest_alignment))
-        self.alignment_builder.build_alignment(event, self.state_explorer[case_id])
-        print(self.state_explorer[case_id].top().cost)
+
+        new_alignment_states = self.alignment_builder.build_alignment(event, self.state_explorer[case_id])
+        for state in new_alignment_states:
+            self.state_explorer[case_id].insert_state(state)
+        print(self.state_explorer[case_id].top())
 
     def _init_state_for_case(self, case_id):
         self.state_explorer[case_id] = StateExplorer(

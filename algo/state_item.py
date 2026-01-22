@@ -9,7 +9,7 @@ class StateItem:
         trie: Trie,
         alignment: AlignmentTimestamped
     ):
-        self.cost = cost
+        self.cost: int = cost
         self.trie: Trie = trie
         self.alignment: AlignmentTimestamped = alignment
 
