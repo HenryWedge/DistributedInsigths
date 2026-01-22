@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Dict
 
 from algo.alignment import Alignment, SKIP_NODE_COST
@@ -40,7 +41,7 @@ class InsightNode:
                 self.state_explorer[case_id] = StateExplorer(StateItem(latest_alignment.alignment.cost, self.local_trie[latest_alignment.node], latest_alignment))
             else:
                 # TODO hrei here we have to quantify the Real Skip_node_cost
-                self.state_explorer[case_id] = StateExplorer(StateItem(latest_alignment.alignment.cost + SKIP_NODE_COST, self.local_trie, latest_alignment))
+                self.state_explorer[case_id] = StateExplorer(StateItem(latest_alignment.alignment.cost, self.local_trie, latest_alignment))
 
         new_alignment_states = self.alignment_builder.build_alignment(event, self.state_explorer[case_id])
         for state in new_alignment_states:
@@ -53,7 +54,7 @@ class InsightNode:
         self.state_explorer[case_id] = StateExplorer(
             StateItem(
                 0, self.local_trie, AlignmentTimestamped(
-                    alignment=Alignment(), timestamp=-1, node=Node(self.node_id)
+                    alignment=Alignment(), timestamp=datetime(1, 1, 1, tzinfo=timezone.utc), node=Node(self.node_id)
                 )
             )
         )

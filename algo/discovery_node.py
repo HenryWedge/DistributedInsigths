@@ -4,7 +4,7 @@ from algo.event import Event
 from algo.latest_event_info import LatestEventInfo
 from algo.network import Network
 from algo.trie import Trie
-from algo.trie_node import Node, TrieNode
+from algo.trie_node import Node, TrieNode, Activity
 
 
 class DiscoveryNode:
@@ -31,7 +31,7 @@ class DiscoveryNode:
             if timestamp:
                 timestamps.append(timestamp)
 
-        events_to_add: List[TrieNode] = [event.activity]
+        events_to_add: List[TrieNode] = [Activity(event.activity)]
         if timestamps:
             latest_event_info: LatestEventInfo = max(timestamps)
             self.completeness[case_id] = latest_event_info.completeness
