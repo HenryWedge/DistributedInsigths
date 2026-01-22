@@ -2,8 +2,6 @@ import unittest
 
 from gt.distributed_alignments import DistributedAlignments
 from gt.event_log_splitter import EventLogSplitter
-from utility.converter import Converter
-
 
 class GroundTruthAlignmentsTest(unittest.TestCase):
 

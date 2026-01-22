@@ -37,7 +37,6 @@ class AlignmentBuilder:
         current_alignment.alignment.log_move(activity)
         return StateItem(state.cost + 1, state.trie, current_alignment)
 
-
     def _model_move(self, event: Event, state: StateItem):
         current_alignment = self._move_event_data_to_alignment(event, state)
         activity = event.activity
