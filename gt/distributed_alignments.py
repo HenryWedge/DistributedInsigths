@@ -12,7 +12,7 @@ class DistributedAlignments:
         self.node_id = "n1"
         self.discovery_node = DiscoveryNode(self.node_id, network=self.network)
         self.trie = None
-        self.insight_node:InsightNode = None
+        self.insight_node: InsightNode = None
 
     def mine_process_model(self, event_log: EventLog) -> Trie:
         for trace in event_log.traces:

@@ -4,15 +4,18 @@ from utility.converter import Converter
 
 class EventLogSplitter:
 
-    def __init__(self, file_path: str, training_split: int = 0.8):
+    def __init__(self, file_path: str, training_split: int = 0.8, location_key: str = "org:group") -> None:
         self.converter = Converter()
         self.training_split = training_split
-        self.log = self._read_xes_log(file_path)
+        self.log = self._read_xes_log(file_path, location_key)
         self.case_ids = self._get_case_ids()
         self.split_index = self._calculate_split_index()
 
-    def _read_xes_log(self, file_path):
-        return self.converter.to_event_log(pm4py.read_xes(file_path, return_legacy_log_object=True))
+    def _read_xes_log(self, file_path, location_key="org:group"):
+        return self.converter.to_event_log(
+            pm4py.read_xes(file_path, return_legacy_log_object=True),
+            location_key=location_key
+        )
 
     def _get_case_ids(self):
         return list(self.log.traces.keys())

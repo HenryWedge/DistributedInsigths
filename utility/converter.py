@@ -10,19 +10,20 @@ from algo.event_log import EventLog
 
 class Converter:
 
-    def to_event_log(self, event_log: Pm4PyEventLog):
+    def to_event_log(self, event_log: Pm4PyEventLog, location_key=None) -> EventLog:
         el = EventLog()
         for trace in event_log:
             for event in trace:
-                el.add_event(self.to_event(event, trace._attributes["concept:name"]))
+                el.add_event(self.to_event(event, trace._attributes["concept:name"], location_key))
         return el
 
-    def to_event(self, pm4py_event: Pm4PyEvent, case_id) -> Event:
+    def to_event(self, pm4py_event: Pm4PyEvent, case_id, location_key=None) -> Event:
+        location = pm4py_event[location_key] if location_key and location_key in pm4py_event else ""
         return Event(
             time=pm4py_event["time:timestamp"],
             activity=pm4py_event["concept:name"],
             case_id=case_id,
-            location=""
+            location=location
         )
 
     def from_event_log(self, el: EventLog) -> Pm4PyEventLog:

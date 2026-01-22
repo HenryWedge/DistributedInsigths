@@ -17,8 +17,6 @@ class GroundTruthAlignmentsTest(unittest.TestCase):
 
         gviz = pn_visualizer.apply(testee.model[0], testee.model[1], testee.model[2])
 
-        # 4. View or Save the Result
-        # This will open the image in your default system viewer
         pn_visualizer.view(gviz)
         print("Done")
 

@@ -46,7 +46,7 @@ class InsightNode:
         for state in new_alignment_states:
             self.state_explorer[case_id].insert_state(state)
         self.state_explorer[case_id].prune()
-        #print(self.state_explorer[case_id].top())
+        print(self.state_explorer[case_id].top())
         #print(f"size: {len(self.state_explorer[case_id].heap)}")
 
     def _init_state_for_case(self, case_id):
