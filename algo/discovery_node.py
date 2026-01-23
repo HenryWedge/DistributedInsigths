@@ -26,7 +26,7 @@ class DiscoveryNode:
     def process_event(self, event: Event):
         case_id = event.case_id
         timestamps = []
-        for node in self.network.get_all_nodes():
+        for node in self.network.get_all_nodes(self.node_id):
             timestamp = node.get_latest_timestamp(case_id)
             if timestamp:
                 timestamps.append(timestamp)

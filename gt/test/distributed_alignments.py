@@ -11,7 +11,7 @@ class GroundTruthAlignmentsTest(unittest.TestCase):
         testee.mine_process_model(event_log_splitter.get_training_data())
         testee.calculate_alignments(event_log_splitter.get_test_data())
         for case in testee.insight_node.state_explorer:
-            print(testee.insight_node.state_explorer[case].top().cost)
+            print(testee.insight_node.state_explorer[case].top()[0].cost)
         print("Done")
 
 if __name__ == '__main__':

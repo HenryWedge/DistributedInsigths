@@ -14,12 +14,13 @@ class StateExplorer:
     def is_empty(self) -> bool:
         return not bool(self.heap)
 
-    def top(self, n=0) -> List[StateItem] | StateItem:
-        if n == 0:
-            return self.heap[0]
+    def top(self, n=1) -> List[StateItem] | StateItem:
         if n == -1:
             return sorted(self.heap)
-        return heapq.nlargest(n=n ,iterable=self.heap)
+        return heapq.nsmallest(n=n ,iterable=self.heap)
+
+    def clear(self):
+        self.heap = []
 
     def insert_state(self, state):
         heapq.heappush(self.heap, state)
@@ -28,5 +29,5 @@ class StateExplorer:
         return self.heap
 
     def prune(self):
-        #pass
-        self.heap = self.heap[:5]
+        pass
+        #self.heap = self.heap[:5]
