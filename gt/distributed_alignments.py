@@ -2,7 +2,7 @@ from algo.discovery_node import DiscoveryNode
 from algo.event_log import EventLog
 from algo.insight_node import InsightNode
 from algo.network import Network
-from algo.trie import Trie
+from algo.new_trie import NewTrie
 
 
 class DistributedAlignments:
@@ -11,10 +11,10 @@ class DistributedAlignments:
         self.network = Network()
         self.node_id = "n1"
         self.discovery_node = DiscoveryNode(self.node_id, network=self.network)
-        self.trie = None
+        self.trie: NewTrie | None = None
         self.insight_node: InsightNode = None
 
-    def mine_process_model(self, event_log: EventLog) -> Trie:
+    def mine_process_model(self, event_log: EventLog):
         for trace in event_log.traces:
             for event in event_log.traces[trace]:
                 self.discovery_node.process_event(event)

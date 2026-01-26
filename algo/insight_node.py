@@ -6,15 +6,15 @@ from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
 from algo.event import Event
 from algo.network import Network
+from algo.new_trie import NewTrie
 from algo.state_explorer import StateExplorer
 from algo.state_item import StateItem
 from algo.state_with_time import StateWithTime
-from algo.trie import Trie
 from algo.trie_node import Node, Activity
 
 
 class InsightNode:
-    def __init__(self, trie: Trie, node_id: str, network: Network):
+    def __init__(self, trie: NewTrie, node_id: str, network: Network):
         self.node_id = node_id
         self.network: Network = network
         self.local_trie = trie
@@ -32,9 +32,6 @@ class InsightNode:
         )
 
     def process_event(self, event):
-        if event.activity == "Release B":
-            print("Stop")
-
         case_id = event.case_id
         if case_id not in self.state_explorer:
             self._init_state_for_case(event)

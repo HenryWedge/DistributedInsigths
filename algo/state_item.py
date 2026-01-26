@@ -1,17 +1,18 @@
 from algo.alignment_timestamped import AlignmentTimestamped
-from algo.trie import Trie
+from algo.new_trie import NewTrie
+
 
 class StateItem:
 
     def __init__(
         self,
         cost: int,
-        trie: Trie,
+        trie: NewTrie,
         alignment: AlignmentTimestamped,
         last_activity: str | None
     ):
         self.cost: int = cost
-        self.trie: Trie = trie
+        self.trie: NewTrie = trie
         self.last_activity: str = last_activity
         self.alignment: AlignmentTimestamped = alignment
 

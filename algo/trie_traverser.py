@@ -1,21 +1,21 @@
 from collections import deque
 from typing import List
 
-from algo.trie import Trie
+from algo.new_trie import NewTrie
 from algo.trie_node import TrieNode
 
 
 class TrieTraverser:
 
-    def __init__(self, trie: Trie):
-        self.trie: Trie = trie
+    def __init__(self, trie: NewTrie):
+        self.trie: NewTrie = trie
 
-    def find_activity_in_trie(self, activity: TrieNode) -> tuple[Trie | None, int]:
-        if activity in self.trie.next_items():
+    def find_activity_in_trie(self, activity: TrieNode) -> tuple[NewTrie | None, int]:
+        if self.trie.has_child_with_label(activity):
             return self.trie, 0
 
-        initial_queue: List[tuple[Trie, int]] = []
-        for children in self.trie.next_children():
+        initial_queue: List[tuple[NewTrie, int]] = []
+        for children in self.trie.get_children():
             initial_queue.append((children, 1))
 
         queue = deque(initial_queue)
@@ -25,10 +25,10 @@ class TrieTraverser:
             if not current_trie[0] or current_trie[0].is_empty():
                 continue
 
-            if activity in current_trie[0].next_items():
+            if self.trie.has_child_with_label(activity):
                 return current_trie
 
-            for children in current_trie[0].next_children():
+            for children in current_trie[0].get_children():
                 queue.append((children, current_trie[1] + 1))
 
         return None, -1

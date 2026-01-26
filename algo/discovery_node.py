@@ -3,7 +3,7 @@ from typing import Dict, List
 from algo.event import Event
 from algo.latest_event_info import LatestEventInfo
 from algo.network import Network
-from algo.trie import Trie
+from algo.new_trie import NewTrie, TrieBuilder
 from algo.trie_node import Node, TrieNode, Activity
 
 
@@ -13,9 +13,10 @@ class DiscoveryNode:
         self.node_id: str = node_id
         self.network: Network = network
         self.local_network: Network = network
-        self.local_trie: Trie = Trie()
+        self.local_trie: NewTrie = NewTrie()
         self.latest_event: Dict[str, Event] = {}
         self.completeness: Dict[str, int] = {}
+        self.trie_builder: TrieBuilder = TrieBuilder(self.local_trie)
         self.running_trace: Dict[str, List[TrieNode]] = {}
 
     def get_latest_timestamp(self, case_id) -> LatestEventInfo | None:
@@ -42,7 +43,10 @@ class DiscoveryNode:
             self.completeness[case_id] = 0
         events_to_add.reverse()
         self.add_events_to_trace(case_id, events_to_add)
-        self.local_trie.insert_trace(self.running_trace[case_id])
+        #TODO hrei that can be implemented more efficiently
+        for event in self.running_trace[case_id]:
+            self.trie_builder.insert(event)
+        self.trie_builder.reset()
         self.latest_event[case_id] = event
 
     def add_events_to_trace(self, case_id: str, events: List[TrieNode]):

@@ -20,7 +20,7 @@ class AlignmentBuilder:
                 continue
             if not state.trie:
                 new_state_items.append(self._log_move(node, time, state))
-            elif node in state.trie.next_items():
+            elif state.trie.has_child_with_label(node):
                 new_state_items.append(self._sync_move(node, time, state))
             else:
                 new_state_items.append(self._log_move(node, time, state))

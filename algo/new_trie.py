@@ -1,9 +1,14 @@
 from typing import List
 
+from algo.trie_node import Activity, TrieNode
+
 
 class NewTrie:
-    def __init__(self, label="#"):
-        self.label = label
+    def __init__(self, label=None):
+        if label:
+            self.label: TrieNode = label
+        else:
+            self.label: TrieNode = Activity("#")
         self.children: List['NewTrie'] = []
 
     def add_child(self, trie: 'NewTrie'):
@@ -20,6 +25,9 @@ class NewTrie:
 
     def get_children(self):
         return self.children
+
+    def is_empty(self):
+        return len(self.children) == 0
 
     def has_child_with_label(self, label) -> bool:
         return bool([child for child in self.children if child.label == label])
@@ -53,7 +61,7 @@ class TrieBuilder:
         self.root_trie = trie
         self.active_trie: NewTrie = trie
 
-    def insert(self, label: str):
+    def insert(self, label: TrieNode):
         if self.active_trie.has_child(label):
             new_trie = self.active_trie.get_child(label)
         else:
