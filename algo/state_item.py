@@ -7,10 +7,12 @@ class StateItem:
         self,
         cost: int,
         trie: Trie,
-        alignment: AlignmentTimestamped
+        alignment: AlignmentTimestamped,
+        last_activity: str | None
     ):
         self.cost: int = cost
         self.trie: Trie = trie
+        self.last_activity: str = last_activity
         self.alignment: AlignmentTimestamped = alignment
 
     def __str__(self):

@@ -14,14 +14,14 @@ class DiscoveryNode:
         self.network: Network = network
         self.local_network: Network = network
         self.local_trie: Trie = Trie()
-        self.latest_ts: Dict[str, int] = {}
+        self.latest_event: Dict[str, Event] = {}
         self.completeness: Dict[str, int] = {}
         self.running_trace: Dict[str, List[TrieNode]] = {}
 
     def get_latest_timestamp(self, case_id) -> LatestEventInfo | None:
-        if case_id not in self.latest_ts:
+        if case_id not in self.latest_event:
             return None
-        return LatestEventInfo(self.latest_ts[case_id], Node(self.node_id), self.completeness[case_id])
+        return LatestEventInfo(self.latest_event[case_id].time, Node(self.node_id, self.latest_event[case_id].activity), self.completeness[case_id])
 
     def process_event(self, event: Event):
         case_id = event.case_id
@@ -35,16 +35,15 @@ class DiscoveryNode:
         if timestamps:
             latest_event_info: LatestEventInfo = max(timestamps)
             self.completeness[case_id] = latest_event_info.completeness
-            if case_id not in self.latest_ts or latest_event_info.timestamp > self.latest_ts[case_id]:
+            if case_id not in self.latest_event or latest_event_info.timestamp > self.latest_event[case_id].time:
                 events_to_add.append(latest_event_info.node)
                 self.completeness[case_id] = latest_event_info.completeness + 1
         else:
             self.completeness[case_id] = 0
-
         events_to_add.reverse()
         self.add_events_to_trace(case_id, events_to_add)
         self.local_trie.insert_trace(self.running_trace[case_id])
-        self.latest_ts[case_id] = event.time
+        self.latest_event[case_id] = event
 
     def add_events_to_trace(self, case_id: str, events: List[TrieNode]):
         if not case_id in self.running_trace:

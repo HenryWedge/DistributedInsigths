@@ -15,6 +15,9 @@ class TrieNode(ABC):
     def is_end(self):
         pass
 
+    def get_activity(self):
+        pass
+
     def __str__(self):
         return self.content
 
@@ -35,6 +38,9 @@ class Activity(TrieNode):
     def is_end(self):
         return False
 
+    def get_activity(self):
+        return self.content
+
 class EndActivity(TrieNode):
     def __init__(self):
         super().__init__(END_MARKER)
@@ -46,11 +52,15 @@ class EndActivity(TrieNode):
         return True
 
 class Node(TrieNode):
-    def __init__(self, content):
+    def __init__(self, content, activity):
         super().__init__(content)
+        self.activity = activity
 
     def is_activity(self):
         return False
 
     def is_end(self):
         return False
+
+    def get_activity(self):
+        return self.activity
