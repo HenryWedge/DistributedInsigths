@@ -55,6 +55,8 @@ class NewTrie:
             return True
         return False
 
+    def __str__(self):
+        return str(self.label)
 
 class TrieBuilder:
     def __init__(self, trie: NewTrie):

@@ -44,8 +44,8 @@ class DiscoveryNode:
         events_to_add.reverse()
         self.add_events_to_trace(case_id, events_to_add)
         #TODO hrei that can be implemented more efficiently
-        for event in self.running_trace[case_id]:
-            self.trie_builder.insert(event)
+        for e in self.running_trace[case_id]:
+            self.trie_builder.insert(e)
         self.trie_builder.reset()
         self.latest_event[case_id] = event
 

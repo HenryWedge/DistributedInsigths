@@ -46,6 +46,7 @@ class InsightNode:
             latest_alignment_state: StateWithTime = max(alignment_states)
             if not case_id in self.latest_event or latest_alignment_state.time > self.latest_event[case_id].time:
                 # TODO hrei: Not only take the last entry somehow
+                self.get_number_of_tries(self.state_explorer[case_id].get_all_states())
                 latest_trie = self.state_explorer[case_id].top()[0].trie
 
                 self.state_explorer[case_id].clear()
@@ -81,3 +82,10 @@ class InsightNode:
                 last_activity=None
             )
         )
+
+    def get_number_of_tries(self, states: List[StateItem]):
+        tries = []
+        for state in states:
+            if not state.trie in tries:
+                tries.append(state.trie)
+        print(f"no tries: {len(tries)}")

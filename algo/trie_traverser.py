@@ -22,10 +22,10 @@ class TrieTraverser:
         while queue:
             current_trie = queue.popleft()
 
-            if not current_trie[0] or current_trie[0].is_empty():
+            if not current_trie[0]:
                 continue
 
-            if self.trie.has_child_with_label(activity):
+            if current_trie[0].label == activity:
                 return current_trie
 
             for children in current_trie[0].get_children():

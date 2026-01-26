@@ -14,7 +14,7 @@ class AlignmentBuilder:
         new_state_items: List[StateItem] = []
         while not state_explorer.is_empty():
             state: StateItem = state_explorer.get_next_state()
-            if not node.is_activity() and state.last_activity == node.get_activity():
+            if not node.is_activity() and state.last_activity == node.get_activity() and state.trie.has_child_with_label(node):
                 state.trie = state.trie.traverse(Node(node.content, node.get_activity()))
                 new_state_items.append(state)
                 continue

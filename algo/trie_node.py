@@ -65,6 +65,9 @@ class Node(TrieNode):
     def get_activity(self):
         return self.activity
 
+    def __str__(self):
+        return str(f"{self.content}({self.activity})")
+
     def __eq__(self, other):
         return self.content == other.content and self.activity == other.activity
 
