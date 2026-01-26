@@ -16,7 +16,7 @@ class TrieTraverser:
 
         initial_queue: List[tuple[NewTrie, int]] = []
         for children in self.trie.get_children():
-            initial_queue.append((children, 1))
+            initial_queue.append((children, 0))
 
         queue = deque(initial_queue)
         while queue:
@@ -26,6 +26,11 @@ class TrieTraverser:
                 continue
 
             if current_trie[0].label == activity:
+                #resulting_trie = current_trie[0].get_children()
+                #new_trie: NewTrie = NewTrie("#")
+                #for child in resulting_trie:
+                #    new_trie.add_child(child)
+                #return new_trie, current_trie[1]
                 return current_trie
 
             for children in current_trie[0].get_children():
