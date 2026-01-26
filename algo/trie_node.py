@@ -64,3 +64,9 @@ class Node(TrieNode):
 
     def get_activity(self):
         return self.activity
+
+    def __eq__(self, other):
+        return self.content == other.content and self.activity == other.activity
+
+    def __hash__(self):
+        return hash((self.content, self.activity))

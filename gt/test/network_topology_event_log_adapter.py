@@ -2,8 +2,6 @@ import unittest
 
 from gt.event_log_splitter import EventLogSplitter
 from gt.network_topology_event_log_adapter import NetworkTopologyEventLogAdapter
-from gt.test.test_event_log import TestEventLog
-
 
 class NetworkTopologyEventLogAdapterTest(unittest.TestCase):
 
