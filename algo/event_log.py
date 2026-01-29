@@ -14,6 +14,11 @@ class EventLog:
             self.traces[event.case_id] = []
         self.traces[event.case_id].append(event)
 
+    def has_event_in_case(self, case_id, activity) -> bool:
+        if case_id not in self.traces:
+            return False
+        return True in [event.activity == activity for event in self.traces[case_id]]
+
     def filter_case_ids(self, case_ids: List[str]):
         new_event_log = EventLog()
         for case_id in self.traces:

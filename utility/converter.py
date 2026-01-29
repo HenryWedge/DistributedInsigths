@@ -13,15 +13,18 @@ class Converter:
     def to_event_log(self, event_log: Pm4PyEventLog, location_key=None) -> EventLog:
         el = EventLog()
         for trace in event_log:
+            occurrence = 0
             for event in trace:
-                el.add_event(self.to_event(event, trace._attributes["concept:name"], location_key))
+                if el.has_event_in_case(trace._attributes["concept:name"], f"{event["concept:name"]}-{event[location_key]}{occurrence}"):
+                    occurrence = occurrence + 1
+                el.add_event(self.to_event(event, trace._attributes["concept:name"], location_key, occurrence))
         return el
 
-    def to_event(self, pm4py_event: Pm4PyEvent, case_id, location_key=None) -> Event:
+    def to_event(self, pm4py_event: Pm4PyEvent, case_id, location_key=None, occurrence="") -> Event:
         location = pm4py_event[location_key] if location_key and location_key in pm4py_event else ""
         return Event(
             time=pm4py_event["time:timestamp"],
-            activity=f"{pm4py_event["concept:name"]}-{location}",
+            activity=f"{pm4py_event["concept:name"]}-{location}{occurrence}",
             case_id=case_id,
             location=location
         )
