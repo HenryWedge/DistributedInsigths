@@ -1,4 +1,5 @@
 from algo.alignment_timestamped import AlignmentTimestamped
+from algo.context import Context
 from algo.new_trie import NewTrie
 
 
@@ -9,10 +10,10 @@ class StateItem:
         cost: int,
         trie: NewTrie,
         alignment: AlignmentTimestamped,
-        last_activity: str | None
+        last_activities: Context[str]
     ):
         self.trie: NewTrie = trie
-        self.last_activity: str = last_activity
+        self.last_activity: Context[str] = last_activities
         self.alignment: AlignmentTimestamped = alignment
         self.cost: int = self.alignment.alignment.cost
 

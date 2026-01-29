@@ -52,9 +52,9 @@ class EndActivity(TrieNode):
         return True
 
 class Node(TrieNode):
-    def __init__(self, content, activity):
+    def __init__(self, content, activities):
         super().__init__(content)
-        self.activity = activity
+        self.activities = activities
 
     def is_activity(self):
         return False
@@ -63,13 +63,14 @@ class Node(TrieNode):
         return False
 
     def get_activity(self):
-        return self.activity
+        return self.activities
 
     def __str__(self):
-        return str(f"{self.content}({self.activity})")
+        return str(f"{self.content}({self.activities})")
 
     def __eq__(self, other):
-        return self.content == other.content and self.activity == other.activity
+        return self.content == other.content and tuple(self.activities) == tuple(other.activities)
 
     def __hash__(self):
-        return hash((self.content, self.activity))
+        return hash((self.content, tuple(self.activities)))
+

@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+from algo.context import Context
 from algo.event import Event
 from algo.latest_event_info import LatestEventInfo
 from algo.network import Network
@@ -14,15 +15,14 @@ class DiscoveryNode:
         self.network: Network = network
         self.local_network: Network = network
         self.local_trie: NewTrie = NewTrie()
-        self.latest_event: Dict[str, Event] = {}
-        self.completeness: Dict[str, int] = {}
+        self.latest_event: Dict[str, Context[Event]] = {}
         self.trie_builder: TrieBuilder = TrieBuilder(self.local_trie)
         self.running_trace: Dict[str, List[TrieNode]] = {}
 
     def get_latest_timestamp(self, case_id) -> LatestEventInfo | None:
         if case_id not in self.latest_event:
             return None
-        return LatestEventInfo(self.latest_event[case_id].time, Node(self.node_id, self.latest_event[case_id].activity), self.completeness[case_id])
+        return LatestEventInfo(self.latest_event[case_id].get_last().time, Node(self.node_id, [event.activity for event in self.latest_event[case_id].get()]))
 
     def process_event(self, event: Event):
         case_id = event.case_id
@@ -35,19 +35,18 @@ class DiscoveryNode:
         events_to_add: List[TrieNode] = [Activity(event.activity)]
         if timestamps:
             latest_event_info: LatestEventInfo = max(timestamps)
-            self.completeness[case_id] = latest_event_info.completeness
-            if case_id not in self.latest_event or latest_event_info.timestamp > self.latest_event[case_id].time:
+            if case_id not in self.latest_event or latest_event_info.timestamp > self.latest_event[case_id].get_last().time:
                 events_to_add.append(latest_event_info.node)
-                self.completeness[case_id] = latest_event_info.completeness + 1
-        else:
-            self.completeness[case_id] = 0
+
         events_to_add.reverse()
         self.add_events_to_trace(case_id, events_to_add)
         #TODO hrei that can be implemented more efficiently
         for e in self.running_trace[case_id]:
             self.trie_builder.insert(e)
         self.trie_builder.reset()
-        self.latest_event[case_id] = event
+        if not case_id in self.latest_event:
+            self.latest_event[case_id] = Context(1)
+        self.latest_event[case_id].push(event)
 
     def add_events_to_trace(self, case_id: str, events: List[TrieNode]):
         if not case_id in self.running_trace:

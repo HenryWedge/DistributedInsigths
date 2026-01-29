@@ -4,6 +4,7 @@ from typing import Dict, List, Any
 from algo.alignment import Alignment
 from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
+from algo.context import Context
 from algo.event import Event
 from algo.network import Network
 from algo.new_trie import NewTrie
@@ -13,7 +14,6 @@ from algo.state_with_time import StateWithTime
 from algo.trie_node import Node, Activity, TrieNode
 from algo.trie_traverser import TrieTraverser
 
-
 class InsightNode:
     def __init__(self, trie: NewTrie, node_id: str, network: Network):
         self.node_id = node_id
@@ -21,16 +21,15 @@ class InsightNode:
         self.local_trie = trie
         self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.state_explorer: Dict[str, StateExplorer] = {}
-        self.latest_event: Dict[str, Event] = {}
+        self.latest_event: Dict[str, Context[Event]] = {}
 
     def get_current_state(self, event) -> StateWithTime | None:
         if event.case_id not in self.state_explorer:
             return None
-
         return StateWithTime(
-            self.latest_event[event.case_id].time,
+            self.latest_event[event.case_id].get_last().time,
             self.state_explorer[event.case_id].get_all_states(),
-            Node(self.node_id, self.latest_event[event.case_id].activity)
+            Node(self.node_id, [event.activity for event in self.latest_event[event.case_id].get()])
         )
 
     def _collect_alignment_states(self, event: Event):
@@ -46,7 +45,7 @@ class InsightNode:
             self.state_explorer[case_id].insert_state(state)
 
     def is_new_alignment(self, case_id: str, latest_alignment_state: StateWithTime):
-        return not case_id in self.latest_event or latest_alignment_state.time > self.latest_event[case_id].time
+        return not case_id in self.latest_event or latest_alignment_state.time > self.latest_event[case_id].get_last().time
 
     def find_entrypoint_in_model(self, node: TrieNode):
         # TODO hrei consider cost
@@ -68,15 +67,14 @@ class InsightNode:
             Activity(event.activity), event.time, self.state_explorer[case_id]
         )
 
-        self.latest_event[case_id] = event
+        if case_id not in self.latest_event:
+            self.latest_event[case_id] = Context(1)
+        self.latest_event[case_id].push(event)
+
         self._insert_new_states(case_id, new_alignment_states)
         self.state_explorer[case_id].prune()
-
-        # print(event.activity)
-        print([str(item.alignment) for item in self.state_explorer[case_id].top()])
-        # print([str(item.trie) for item in self.state_explorer[case_id].top()])
-        # print(self.state_explorer[case_id].top(2).trie)
-        # print(f"size: {len(self.state_explorer[case_id].heap)}")
+        print(self.state_explorer[case_id].top().alignment)
+        return self.state_explorer[case_id].top().cost
 
     def integrate_previous_state(
         self,
@@ -127,7 +125,7 @@ class InsightNode:
                     timestamp=datetime(1, 1, 1),
                     node=Node(self.node_id, event.activity)
                 ),
-                last_activity=None
+                last_activities=Context(None)
             )
         )
 
