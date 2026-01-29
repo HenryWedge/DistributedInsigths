@@ -11,10 +11,10 @@ class StateItem:
         alignment: AlignmentTimestamped,
         last_activity: str | None
     ):
-        self.cost: int = cost
         self.trie: NewTrie = trie
         self.last_activity: str = last_activity
         self.alignment: AlignmentTimestamped = alignment
+        self.cost: int = self.alignment.alignment.cost
 
     def __str__(self):
         return f"Cost: {self.cost}\n{self.alignment}\n{self.trie}"

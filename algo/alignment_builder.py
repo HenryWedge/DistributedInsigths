@@ -15,7 +15,7 @@ class AlignmentBuilder:
         while not state_explorer.is_empty():
             state: StateItem = state_explorer.get_next_state()
             if not node.is_activity() and state.last_activity == node.get_activity():
-                if state.trie.has_child_with_label(node):
+                if state.trie and state.trie.has_child_with_label(node):
                     state.trie = state.trie.traverse(Node(node.content, node.get_activity()))
                 new_state_items.append(state)
                 continue
@@ -42,9 +42,9 @@ class AlignmentBuilder:
 
     def _model_move(self, node: TrieNode, time, state: StateItem):
         current_alignment = self._move_event_data_to_alignment(node, time, state)
-        current_alignment.alignment.model_move(node)
         trie_traverser = TrieTraverser(state.trie)
         new_trie, cost = trie_traverser.find_activity_in_trie(node)
+        current_alignment.alignment.model_move(node, cost)
         if not new_trie:
             return None
         return StateItem(state.cost + cost * MDL_MOVE_COST, new_trie, current_alignment, node.get_activity())

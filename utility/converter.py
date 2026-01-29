@@ -21,7 +21,7 @@ class Converter:
         location = pm4py_event[location_key] if location_key and location_key in pm4py_event else ""
         return Event(
             time=pm4py_event["time:timestamp"],
-            activity=pm4py_event["concept:name"],
+            activity=f"{pm4py_event["concept:name"]}-{location}",
             case_id=case_id,
             location=location
         )

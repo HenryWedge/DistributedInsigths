@@ -33,6 +33,8 @@ class InsightNode:
         )
 
     def process_event(self, event):
+        if event.activity == "LacticAcid":
+            print("Stop")
         case_id = event.case_id
         is_init = False
 
@@ -78,7 +80,7 @@ class InsightNode:
         for state in new_alignment_states:
             self.state_explorer[case_id].insert_state(state)
         self.state_explorer[case_id].prune()
-        print(event.activity)
+        #print(event.activity)
         print([str(item.alignment) for item in self.state_explorer[case_id].top()])
         # print([str(item.trie) for item in self.state_explorer[case_id].top()])
         # print(self.state_explorer[case_id].top(2).trie)
