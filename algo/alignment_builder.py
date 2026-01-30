@@ -43,6 +43,7 @@ class AlignmentBuilder:
     def _model_move(self, node: TrieNode, time, state: StateItem):
         current_alignment = self._move_event_data_to_alignment(node, time, state)
         trie_traverser = TrieTraverser(state.trie)
+
         new_trie, cost = trie_traverser.find_activity_in_trie(node)
         current_alignment.alignment.model_move(node, cost)
         if not new_trie:

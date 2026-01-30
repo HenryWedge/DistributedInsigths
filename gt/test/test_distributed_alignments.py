@@ -27,13 +27,17 @@ class TestGroundTruthAlignments(unittest.TestCase):
         decentral_alignments: Dict[str, int] = {}
 
         for case_id in testee.insight_node.state_explorer:
-            central_alignments[case_id] = testee.insight_node.state_explorer[case_id].top()[0].cost
+            central_alignments[case_id] = testee.insight_node.state_explorer[case_id].top().cost
 
         for node in adapter.network_topology.insight_nodes:
             for case_id in adapter.network_topology.insight_nodes[node].state_explorer:
-                new_cost = adapter.network_topology.insight_nodes[node].state_explorer[case_id].top()[0].cost
+                new_cost = adapter.network_topology.insight_nodes[node].state_explorer[case_id].top().cost
                 if not case_id in decentral_alignments or decentral_alignments[case_id] < new_cost:
                     decentral_alignments[case_id] = new_cost
+
+        for case_id in central_alignments:
+            if central_alignments[case_id] < decentral_alignments[case_id]:
+                print(case_id)
 
         print("Finished")
 

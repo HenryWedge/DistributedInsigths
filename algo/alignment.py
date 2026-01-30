@@ -17,14 +17,12 @@ class Alignment:
         self.log_moves.append(str(activity))
 
     def log_move(self, activity):
-        self.model_moves.append(str(activity))
         self.log_moves.append(SKIP)
         self.cost += LOG_MOVE_COST
 
     def model_move(self, activity, steps):
         self.model_moves.append(f"{SKIP}({steps})")
         self.model_moves.append(str(activity))
-        self.log_moves.append(str(activity))
         self.cost += steps*MDL_MOVE_COST
 
     def __str__(self):

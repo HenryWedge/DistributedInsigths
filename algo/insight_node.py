@@ -55,6 +55,8 @@ class InsightNode:
         ]
 
     def process_event(self, event):
+        if event.activity == "Release A-E0":
+            print("Lol")
         case_id = event.case_id
         alignment_states: List[StateWithTime] = self._collect_alignment_states(event)
         has_trace_started_on_other_node = case_id not in self.state_explorer and bool(alignment_states)
@@ -72,8 +74,9 @@ class InsightNode:
         self._insert_new_states(case_id, new_alignment_states)
         self.state_explorer[case_id].prune()
 
-        # print(event.activity)
-        print([str(item.alignment) for item in self.state_explorer[case_id].top()])
+        print(self.state_explorer[case_id].top().alignment)
+        print(event.activity)
+        return self.state_explorer[case_id].top().cost
         # print([str(item.trie) for item in self.state_explorer[case_id].top()])
         # print(self.state_explorer[case_id].top(2).trie)
         # print(f"size: {len(self.state_explorer[case_id].heap)}")

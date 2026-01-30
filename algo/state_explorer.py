@@ -19,6 +19,8 @@ class StateExplorer:
     def top(self, n=1) -> List[StateItem] | StateItem:
         if n == -1:
             return sorted(self.heap)
+        if n == 1:
+            return heapq.nsmallest(n=n, iterable=self.heap)[0]
         return heapq.nsmallest(n=n ,iterable=self.heap)
 
     def clear(self):
