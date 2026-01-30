@@ -32,6 +32,7 @@ class StateExplorer:
     def get_all_states(self) -> List[StateItem]:
         return self.heap
 
-    def prune(self):
-        pass
-        #self.heap = self.heap[:5]
+    def prune(self, max_heap_size: int | None):
+        print(f"Heap: {len(self.heap)}")
+        if max_heap_size:
+            self.heap = self.heap[:max_heap_size]

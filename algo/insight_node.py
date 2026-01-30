@@ -15,13 +15,14 @@ from algo.trie_traverser import TrieTraverser
 
 
 class InsightNode:
-    def __init__(self, trie: NewTrie, node_id: str, network: Network):
+    def __init__(self, trie: NewTrie, node_id: str, network: Network, max_heap_size: int):
         self.node_id = node_id
         self.network: Network = network
         self.local_trie = trie
         self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.state_explorer: Dict[str, StateExplorer] = {}
         self.latest_event: Dict[str, Event] = {}
+        self.max_heap_size: int = max_heap_size
 
     def get_current_state(self, event) -> StateWithTime | None:
         if event.case_id not in self.state_explorer:
@@ -55,8 +56,6 @@ class InsightNode:
         ]
 
     def process_event(self, event):
-        if event.activity == "Release A-E0":
-            print("Lol")
         case_id = event.case_id
         alignment_states: List[StateWithTime] = self._collect_alignment_states(event)
         has_trace_started_on_other_node = case_id not in self.state_explorer and bool(alignment_states)
@@ -72,7 +71,7 @@ class InsightNode:
 
         self.latest_event[case_id] = event
         self._insert_new_states(case_id, new_alignment_states)
-        self.state_explorer[case_id].prune()
+        self.state_explorer[case_id].prune(self.max_heap_size)
 
         print(self.state_explorer[case_id].top().alignment)
         print(event.activity)

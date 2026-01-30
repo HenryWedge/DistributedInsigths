@@ -7,12 +7,13 @@ from algo.new_trie import NewTrie
 
 class DistributedAlignments:
 
-    def __init__(self):
+    def __init__(self, max_heap_size: int):
         self.network = Network()
         self.node_id = "n1"
         self.discovery_node = DiscoveryNode(self.node_id, network=self.network)
         self.trie: NewTrie | None = None
         self.insight_node: InsightNode = None
+        self.max_heap_size = max_heap_size
 
     def mine_process_model(self, event_log: EventLog):
         for trace in event_log.traces:
@@ -21,7 +22,7 @@ class DistributedAlignments:
         self.trie = self.discovery_node.local_trie
 
     def calculate_alignments(self, event_log: EventLog):
-        self.insight_node = InsightNode(trie=self.trie, node_id=self.node_id, network=self.network)
+        self.insight_node = InsightNode(trie=self.trie, node_id=self.node_id, network=self.network, max_heap_size=self.max_heap_size)
         for trace in event_log.traces:
             for event in event_log.traces[trace]:
                 self.insight_node.process_event(event)

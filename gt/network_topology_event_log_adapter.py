@@ -4,8 +4,8 @@ from gt.network_topology import NetworkTopology
 
 class NetworkTopologyEventLogAdapter:
 
-    def __init__(self):
-        self.network_topology: NetworkTopology = NetworkTopology()
+    def __init__(self, max_heap_size: int):
+        self.network_topology: NetworkTopology = NetworkTopology(max_heap_size)
 
     def distribute_event_log_discovery(self, event_log: EventLog):
         for trace in event_log.traces:
