@@ -9,18 +9,19 @@ from time import time
 
 from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy, \
     CollectPreviousAlignmentsStrategyAskAll
+from algo.strategy.heap_pruning_strategy import HeapPruningStrategy
 
 
 class DistributedAlignments:
 
-    def __init__(self, max_heap_size: int):
+    def __init__(self, pruning_strategy: HeapPruningStrategy):
         self.network = Network()
         self.node_id = "n1"
         self.discovery_node = DiscoveryNode(self.node_id, network=self.network)
         self.trie: NewTrie | None = None
         self.insight_node: InsightNode = None
-        self.max_heap_size = max_heap_size
         self.monitor: List[float] = []
+        self.pruning_strategy: HeapPruningStrategy = pruning_strategy
 
     def mine_process_model(self, event_log: EventLog):
         for trace in event_log.traces:
@@ -33,7 +34,7 @@ class DistributedAlignments:
             trie=self.trie,
             node_id=self.node_id,
             network=self.network,
-            max_heap_size=self.max_heap_size,
+            pruning_strategy=self.pruning_strategy,
             collect_alignments_strategy=lambda network, node_id: CollectPreviousAlignmentsStrategyAskAll(network, node_id)
         )
         for trace in event_log.traces:

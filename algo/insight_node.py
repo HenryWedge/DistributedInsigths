@@ -12,6 +12,7 @@ from algo.state_explorer import StateExplorer
 from algo.state_item import StateItem
 from algo.state_with_time import StateWithTime
 from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy
+from algo.strategy.heap_pruning_strategy import HeapPruningStrategy
 from algo.trie_node import Node, Activity, TrieNode
 from algo.trie_traverser import TrieTraverser
 
@@ -22,7 +23,7 @@ class InsightNode:
             trie: NewTrie,
             node_id: str,
             network: Network,
-            max_heap_size: int,
+            pruning_strategy: HeapPruningStrategy,
             collect_alignments_strategy: Callable[[Network, string], CollectPreviousAlignmentsStrategy]
     ):
         self.node_id = node_id
@@ -31,9 +32,10 @@ class InsightNode:
         self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.state_explorer: Dict[str, StateExplorer] = {}
         self.latest_event: Dict[str, Event] = {}
-        self.max_heap_size: int = max_heap_size
-        self.collect_alignments_strategy: CollectPreviousAlignmentsStrategy = collect_alignments_strategy(
-            network, node_id)
+        #self.max_heap_size: int = max_heap_size
+        self.collect_alignments_strategy: CollectPreviousAlignmentsStrategy = (
+            collect_alignments_strategy(network, node_id))
+        self.heap_pruning_strategy: HeapPruningStrategy = pruning_strategy
 
     def get_current_state(self, event) -> StateWithTime | None:
         if event.case_id not in self.state_explorer:
@@ -74,8 +76,9 @@ class InsightNode:
 
         self.latest_event[case_id] = event
         self._insert_new_states(case_id, new_alignment_states)
-        self.state_explorer[case_id].prune(self.max_heap_size)
-
+        self.state_explorer[case_id] = StateExplorer(
+            self.heap_pruning_strategy.prune(self.state_explorer[case_id].get_all_states())
+        )
         return self.state_explorer[case_id].top().cost
 
     def integrate_previous_state(
@@ -119,7 +122,7 @@ class InsightNode:
             trie = self.local_trie
 
         self.state_explorer[event.case_id] = StateExplorer(
-            StateItem(
+            [StateItem(
                 0,
                 trie,
                 AlignmentTimestamped(
@@ -128,7 +131,7 @@ class InsightNode:
                     node=Node(self.node_id, event.activity)
                 ),
                 last_activity=None
-            )
+            )]
         )
 
     def get_distinct_tries(self, states: List[StateItem]):

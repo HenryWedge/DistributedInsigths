@@ -4,10 +4,10 @@ from typing import List
 from algo.state_item import StateItem
 
 class StateExplorer:
-    def __init__(self, initial_state: StateItem | None = None):
+    def __init__(self, initial_state: List[StateItem]):
         self.heap: List[StateItem] = []
         if initial_state:
-            self.heap.append(initial_state)
+            self.heap.extend(initial_state)
         self.max_heap_size = 10
 
     def get_next_state(self) -> StateItem:
