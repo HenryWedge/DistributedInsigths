@@ -2,10 +2,13 @@ import unittest
 from statistics import median
 from typing import Dict
 
+from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategyAskAll, \
+    CollectPreviousAlignmentsStrategyAskOptimistically
 from gt import GroundTruthAlignments
 from gt.distributed_alignments import DistributedAlignments
 from gt.event_log_splitter import EventLogSplitter
 from gt.network_topology_event_log_adapter import NetworkTopologyEventLogAdapter
+
 
 class TestGroundTruthAlignments(unittest.TestCase):
 
@@ -13,14 +16,20 @@ class TestGroundTruthAlignments(unittest.TestCase):
         testee = DistributedAlignments(1000)
         ground_truth_alignments = GroundTruthAlignments()
         event_log_splitter = EventLogSplitter("./datasets/Sepsis.xes", location_key="org:group")
-        # event_log_splitter = TestEventLog()
         test_traces_count = 50
 
         testee.mine_process_model(event_log_splitter.get_training_data())
         testee.calculate_alignments(event_log_splitter.get_test_data(test_traces_count))
 
         print("---")
-        adapter = NetworkTopologyEventLogAdapter(max_heap_size=5)
+        adapter = NetworkTopologyEventLogAdapter(
+            max_heap_size=5,
+            collect_alignments_strategy=
+            lambda network, node_id:
+            CollectPreviousAlignmentsStrategyAskAll(
+                network,
+                node_id)
+        )
         adapter.distribute_event_log_discovery(event_log_splitter.get_training_data())
         adapter.distribute_event_log_insights(event_log_splitter.get_test_data(test_traces_count))
 
@@ -35,7 +44,6 @@ class TestGroundTruthAlignments(unittest.TestCase):
                 new_cost = adapter.network_topology.insight_nodes[node].state_explorer[case_id].top().cost
                 if not case_id in decentral_alignments or decentral_alignments[case_id] < new_cost:
                     decentral_alignments[case_id] = new_cost
-
 
         distributed_monitor = adapter.network_topology.monitor
         central_monitor = testee.monitor
@@ -53,8 +61,8 @@ class TestGroundTruthAlignments(unittest.TestCase):
 
         for case_id in central_alignments:
             relative_error = (
-                (central_alignments[case_id] - decentral_alignments[case_id]) /
-                max(1, central_alignments[case_id], decentral_alignments[case_id])
+                    (central_alignments[case_id] - decentral_alignments[case_id]) /
+                    max(1, central_alignments[case_id], decentral_alignments[case_id])
             )
             if abs(relative_error) < error_threshold:
                 correct_classified += 1

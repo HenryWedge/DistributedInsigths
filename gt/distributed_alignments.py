@@ -7,6 +7,9 @@ from algo.network import Network
 from algo.new_trie import NewTrie
 from time import time
 
+from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy, \
+    CollectPreviousAlignmentsStrategyAskAll
+
 
 class DistributedAlignments:
 
@@ -26,7 +29,13 @@ class DistributedAlignments:
         self.trie = self.discovery_node.local_trie
 
     def calculate_alignments(self, event_log: EventLog):
-        self.insight_node = InsightNode(trie=self.trie, node_id=self.node_id, network=self.network, max_heap_size=self.max_heap_size)
+        self.insight_node = InsightNode(
+            trie=self.trie,
+            node_id=self.node_id,
+            network=self.network,
+            max_heap_size=self.max_heap_size,
+            collect_alignments_strategy=lambda network, node_id: CollectPreviousAlignmentsStrategyAskAll(network, node_id)
+        )
         for trace in event_log.traces:
             for event in event_log.traces[trace]:
                 start = time()

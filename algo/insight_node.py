@@ -1,6 +1,7 @@
+import string
 import time
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Callable
 from algo.alignment import Alignment
 from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
@@ -10,11 +11,20 @@ from algo.new_trie import NewTrie
 from algo.state_explorer import StateExplorer
 from algo.state_item import StateItem
 from algo.state_with_time import StateWithTime
+from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy
 from algo.trie_node import Node, Activity, TrieNode
 from algo.trie_traverser import TrieTraverser
 
+
 class InsightNode:
-    def __init__(self, trie: NewTrie, node_id: str, network: Network, max_heap_size: int):
+    def __init__(
+            self,
+            trie: NewTrie,
+            node_id: str,
+            network: Network,
+            max_heap_size: int,
+            collect_alignments_strategy: Callable[[Network, string], CollectPreviousAlignmentsStrategy]
+    ):
         self.node_id = node_id
         self.network: Network = network
         self.local_trie = trie
@@ -22,6 +32,8 @@ class InsightNode:
         self.state_explorer: Dict[str, StateExplorer] = {}
         self.latest_event: Dict[str, Event] = {}
         self.max_heap_size: int = max_heap_size
+        self.collect_alignments_strategy: CollectPreviousAlignmentsStrategy = collect_alignments_strategy(
+            network, node_id)
 
     def get_current_state(self, event) -> StateWithTime | None:
         if event.case_id not in self.state_explorer:
@@ -32,14 +44,6 @@ class InsightNode:
             self.state_explorer[event.case_id].get_all_states(),
             Node(self.node_id, self.latest_event[event.case_id].activity)
         )
-
-    def _collect_alignment_states(self, event: Event):
-        alignment_states: List[StateWithTime] = []
-        for node in self.network.get_all_nodes(self.node_id):
-            alignment_state = node.get_current_state(event)
-            if alignment_state is not None:
-                alignment_states.append(alignment_state)
-        return alignment_states
 
     def _insert_new_states(self, case_id, new_alignment_states: List[StateItem]):
         for state in new_alignment_states:
@@ -56,7 +60,7 @@ class InsightNode:
 
     def process_event(self, event):
         case_id = event.case_id
-        alignment_states: List[StateWithTime] = self._collect_alignment_states(event)
+        alignment_states: List[StateWithTime] = self.collect_alignments_strategy.collect_alignment_states(event)
         has_trace_started_on_other_node = case_id not in self.state_explorer and bool(alignment_states)
 
         if case_id not in self.state_explorer:
@@ -75,10 +79,10 @@ class InsightNode:
         return self.state_explorer[case_id].top().cost
 
     def integrate_previous_state(
-        self,
-        alignment_states: list[StateWithTime],
-        case_id,
-        has_trace_started_on_other_node: bool
+            self,
+            alignment_states: List[StateWithTime],
+            case_id,
+            has_trace_started_on_other_node: bool
     ):
         if not alignment_states:
             return

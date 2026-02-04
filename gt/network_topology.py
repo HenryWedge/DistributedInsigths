@@ -1,20 +1,27 @@
+import string
 from time import time
-from typing import Dict, List
+from typing import Dict, List, Callable
 
 from algo.discovery_node import DiscoveryNode
 from algo.event import Event
 from algo.insight_node import InsightNode
 from algo.network import Network
+from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy
 
 
 class NetworkTopology:
-    def __init__(self, max_heap_size: int):
+    def __init__(
+            self,
+            max_heap_size: int,
+            collect_alignments_strategy: Callable[[Network, string], CollectPreviousAlignmentsStrategy]
+    ):
         self.network_discovery: Network = Network()
         self.network_insights: Network = Network()
         self.insight_nodes: Dict[str, InsightNode] = {}
         self.discovery_nodes: Dict[str, DiscoveryNode] = {}
         self.max_heap_size: int = max_heap_size
         self.monitor: List[float] = []
+        self.collect_alignments_strategy = collect_alignments_strategy
 
     def process_insights(self, event: Event):
         if event.location not in self.insight_nodes:
@@ -22,7 +29,8 @@ class NetworkTopology:
                 self.discovery_nodes[event.location].local_trie,
                 event.location,
                 self.network_insights,
-                self.max_heap_size
+                self.max_heap_size,
+                self.collect_alignments_strategy
             )
             self.insight_nodes[event.location] = node
             self.network_insights.add_node(event.location, node)
