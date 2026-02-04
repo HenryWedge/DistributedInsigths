@@ -26,9 +26,10 @@ class TestGroundTruthAlignments(unittest.TestCase):
             max_heap_size=5,
             collect_alignments_strategy=
             lambda network, node_id:
-            CollectPreviousAlignmentsStrategyAskAll(
+            CollectPreviousAlignmentsStrategyAskOptimistically(
                 network,
-                node_id)
+                node_id
+            )
         )
         adapter.distribute_event_log_discovery(event_log_splitter.get_training_data())
         adapter.distribute_event_log_insights(event_log_splitter.get_test_data(test_traces_count))
@@ -39,7 +40,10 @@ class TestGroundTruthAlignments(unittest.TestCase):
         for case_id in testee.insight_node.state_explorer:
             central_alignments[case_id] = testee.insight_node.state_explorer[case_id].top().cost
 
+        total_network_requests = 0
         for node in adapter.network_topology.insight_nodes:
+            total_network_requests += adapter.network_topology.insight_nodes[node].collect_alignments_strategy.network_requests
+
             for case_id in adapter.network_topology.insight_nodes[node].state_explorer:
                 new_cost = adapter.network_topology.insight_nodes[node].state_explorer[case_id].top().cost
                 if not case_id in decentral_alignments or decentral_alignments[case_id] < new_cost:
@@ -51,6 +55,7 @@ class TestGroundTruthAlignments(unittest.TestCase):
         print(median(distributed_monitor))
         print(max(central_monitor))
         print(median(central_monitor))
+        print(f"Network requests: {total_network_requests}")
 
         correlation_matrix = {}
         accumulated_error = 0
