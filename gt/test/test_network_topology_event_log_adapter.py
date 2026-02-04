@@ -9,8 +9,8 @@ class NetworkTopologyEventLogAdapterTest(unittest.TestCase):
         event_log = EventLogSplitter("datasets/Sepsis.xes", location_key="org:group")
         #event_log = TestEventLog()
         adapter = NetworkTopologyEventLogAdapter()
-        adapter.distribute_event_log_discovery(event_log.get_training_data())
-        adapter.distribute_event_log_insights(event_log.get_test_data())
+        adapter.discovery(event_log.get_training_data())
+        adapter.insights(event_log.get_test_data())
         print("Done")
 
 if __name__ == '__main__':

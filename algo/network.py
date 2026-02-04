@@ -1,6 +1,5 @@
 from typing import Dict, List
 
-
 class Network[T]:
 
     def __init__(self):

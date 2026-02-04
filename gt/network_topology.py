@@ -4,6 +4,7 @@ from typing import Dict, List, Callable
 
 from algo.discovery_node import DiscoveryNode
 from algo.event import Event
+from algo.event_distribution_function import EventDistributionFunction
 from algo.insight_node import InsightNode
 from algo.network import Network
 from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy
@@ -13,6 +14,7 @@ from algo.strategy.heap_pruning_strategy import HeapPruningStrategy
 class NetworkTopology:
     def __init__(
             self,
+            event_distribution_function: EventDistributionFunction,
             pruning_strategy: HeapPruningStrategy,
             collect_alignments_strategy: Callable[[Network, string], CollectPreviousAlignmentsStrategy]
     ):
@@ -20,31 +22,43 @@ class NetworkTopology:
         self.network_insights: Network = Network()
         self.insight_nodes: Dict[str, InsightNode] = {}
         self.discovery_nodes: Dict[str, DiscoveryNode] = {}
+        self.event_distribution_function: EventDistributionFunction = event_distribution_function
         self.pruning_strategy: HeapPruningStrategy = pruning_strategy
         self.monitor: List[float] = []
         self.collect_alignments_strategy = collect_alignments_strategy
 
     def process_insights(self, event: Event):
-        if event.location not in self.insight_nodes:
+        location = self.event_distribution_function.distribute(event)
+        if location not in self.insight_nodes:
             node = InsightNode(
-                self.discovery_nodes[event.location].local_trie,
-                event.location,
+                self.discovery_nodes[location].local_trie,
+                location,
                 self.network_insights,
                 self.pruning_strategy,
                 self.collect_alignments_strategy
             )
-            self.insight_nodes[event.location] = node
-            self.network_insights.add_node(event.location, node)
-        insight_node: InsightNode = self.insight_nodes[event.location]
+            self.insight_nodes[location] = node
+            self.network_insights.add_node(location, node)
+        insight_node: InsightNode = self.insight_nodes[location]
         start = time()
         insight_node.process_event(event)
         end = time()
         self.monitor.append(round(1000 * (end - start), 2))
 
     def process_discovery_event(self, event: Event):
-        if event.location not in self.discovery_nodes:
-            node = DiscoveryNode(event.location, self.network_discovery)
-            self.discovery_nodes[event.location] = node
-            self.network_discovery.add_node(event.location, node)
-        discovery_node: DiscoveryNode = self.discovery_nodes[event.location]
+        location = self.event_distribution_function.distribute(event)
+        if location not in self.discovery_nodes:
+            node = DiscoveryNode(location, self.network_discovery)
+            self.discovery_nodes[location] = node
+            self.network_discovery.add_node(location, node)
+        discovery_node: DiscoveryNode = self.discovery_nodes[location]
         discovery_node.process_event(event)
+
+    def get_cumulated_alignment_cost(self):
+        alignments_per_case = {}
+        for node in self.insight_nodes:
+            for case_id in self.insight_nodes[node].state_explorer:
+                new_cost = self.insight_nodes[node].state_explorer[case_id].top().cost
+                if not case_id in alignments_per_case or alignments_per_case[case_id] < new_cost:
+                    alignments_per_case[case_id] = new_cost
+        return alignments_per_case
