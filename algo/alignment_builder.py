@@ -25,9 +25,7 @@ class AlignmentBuilder:
                 new_state_items.append(self._sync_move(node, time, state))
             else:
                 new_state_items.append(self._log_move(node, time, state))
-                model_move_state_item = self._model_move(node, time, state)
-                if model_move_state_item:
-                    new_state_items.append(model_move_state_item)
+                new_state_items.extend(self._model_move_v2(node, time, state))
         return new_state_items
 
     def _sync_move(self, node: TrieNode, time, state: StateItem):
@@ -49,6 +47,15 @@ class AlignmentBuilder:
         if not new_trie:
             return None
         return StateItem(state.cost + cost * MDL_MOVE_COST, new_trie, current_alignment, node.get_activity())
+
+    def _model_move_v2(self, node: TrieNode, time, state: StateItem) -> List[StateItem]:
+        current_alignment = self._move_event_data_to_alignment(node, time, state)
+        new_states_items = []
+        for child in state.trie.get_children():
+            new_alignment = deepcopy(current_alignment)
+            new_alignment.alignment.model_move(node, 1, state.trie.label)
+            new_states_items.append(StateItem(state.cost + MDL_MOVE_COST, child, new_alignment, node.get_activity()))
+        return new_states_items
 
     def _move_event_data_to_alignment(self, node: TrieNode, time, state: StateItem) -> AlignmentTimestamped:
         current_alignment = deepcopy(state.alignment)

@@ -1,4 +1,5 @@
-from typing import Dict
+from time import time
+from typing import Dict, List
 
 from algo.discovery_node import DiscoveryNode
 from algo.event import Event
@@ -7,23 +8,29 @@ from algo.network import Network
 
 
 class NetworkTopology:
-
     def __init__(self, max_heap_size: int):
         self.network_discovery: Network = Network()
         self.network_insights: Network = Network()
         self.insight_nodes: Dict[str, InsightNode] = {}
         self.discovery_nodes: Dict[str, DiscoveryNode] = {}
         self.max_heap_size: int = max_heap_size
+        self.monitor: List[float] = []
 
     def process_insights(self, event: Event):
         if event.location not in self.insight_nodes:
             node = InsightNode(
-                self.discovery_nodes[event.location].local_trie, event.location, self.network_insights, self.max_heap_size
+                self.discovery_nodes[event.location].local_trie,
+                event.location,
+                self.network_insights,
+                self.max_heap_size
             )
             self.insight_nodes[event.location] = node
             self.network_insights.add_node(event.location, node)
         insight_node: InsightNode = self.insight_nodes[event.location]
+        start = time()
         insight_node.process_event(event)
+        end = time()
+        self.monitor.append(round(1000 * (end - start), 2))
 
     def process_discovery_event(self, event: Event):
         if event.location not in self.discovery_nodes:

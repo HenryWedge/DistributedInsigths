@@ -1,8 +1,11 @@
+from typing import List
+
 from algo.discovery_node import DiscoveryNode
 from algo.event_log import EventLog
 from algo.insight_node import InsightNode
 from algo.network import Network
 from algo.new_trie import NewTrie
+from time import time
 
 
 class DistributedAlignments:
@@ -14,6 +17,7 @@ class DistributedAlignments:
         self.trie: NewTrie | None = None
         self.insight_node: InsightNode = None
         self.max_heap_size = max_heap_size
+        self.monitor: List[float] = []
 
     def mine_process_model(self, event_log: EventLog):
         for trace in event_log.traces:
@@ -25,4 +29,7 @@ class DistributedAlignments:
         self.insight_node = InsightNode(trie=self.trie, node_id=self.node_id, network=self.network, max_heap_size=self.max_heap_size)
         for trace in event_log.traces:
             for event in event_log.traces[trace]:
+                start = time()
                 self.insight_node.process_event(event)
+                end = time()
+                self.monitor.append(round((end - start)*1000, 2))

@@ -1,5 +1,5 @@
 SKIP = ">"
-LOG_MOVE_COST = 5
+LOG_MOVE_COST = 1
 MDL_MOVE_COST = 1
 SKIP_NODE_COST = 3
 
@@ -20,8 +20,8 @@ class Alignment:
         self.log_moves.append(SKIP)
         self.cost += LOG_MOVE_COST
 
-    def model_move(self, activity, steps):
-        self.model_moves.append(f"{SKIP}({steps})")
+    def model_move(self, activity, steps, original):
+        self.model_moves.append(f"{SKIP}({original})")
         self.model_moves.append(str(activity))
         self.cost += steps*MDL_MOVE_COST
 

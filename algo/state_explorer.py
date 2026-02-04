@@ -33,6 +33,6 @@ class StateExplorer:
         return self.heap
 
     def prune(self, max_heap_size: int | None):
-        print(f"Heap: {len(self.heap)}")
+        #print(f"Heap: {len(self.heap)}")
         if max_heap_size:
             self.heap = self.heap[:max_heap_size]

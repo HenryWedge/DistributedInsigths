@@ -1,6 +1,6 @@
+import time
 from datetime import datetime
 from typing import Dict, List, Any
-
 from algo.alignment import Alignment
 from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
@@ -12,7 +12,6 @@ from algo.state_item import StateItem
 from algo.state_with_time import StateWithTime
 from algo.trie_node import Node, Activity, TrieNode
 from algo.trie_traverser import TrieTraverser
-
 
 class InsightNode:
     def __init__(self, trie: NewTrie, node_id: str, network: Network, max_heap_size: int):
@@ -73,12 +72,7 @@ class InsightNode:
         self._insert_new_states(case_id, new_alignment_states)
         self.state_explorer[case_id].prune(self.max_heap_size)
 
-        print(self.state_explorer[case_id].top().alignment)
-        print(event.activity)
         return self.state_explorer[case_id].top().cost
-        # print([str(item.trie) for item in self.state_explorer[case_id].top()])
-        # print(self.state_explorer[case_id].top(2).trie)
-        # print(f"size: {len(self.state_explorer[case_id].heap)}")
 
     def integrate_previous_state(
         self,
