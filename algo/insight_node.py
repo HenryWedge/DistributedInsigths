@@ -19,12 +19,12 @@ from algo.trie_traverser import TrieTraverser
 
 class InsightNode:
     def __init__(
-            self,
-            trie: NewTrie,
-            node_id: str,
-            network: Network,
-            pruning_strategy: HeapPruningStrategy,
-            collect_alignments_strategy: Callable[[Network, string], CollectPreviousAlignmentsStrategy]
+        self,
+        trie: NewTrie,
+        node_id: str,
+        network: Network,
+        pruning_strategy: HeapPruningStrategy,
+        collect_alignments_strategy: Callable[[Network, string], CollectPreviousAlignmentsStrategy]
     ):
         self.node_id = node_id
         self.network: Network = network
@@ -32,7 +32,6 @@ class InsightNode:
         self.alignment_builder: AlignmentBuilder = AlignmentBuilder()
         self.state_explorer: Dict[str, StateExplorer] = {}
         self.latest_event: Dict[str, Event] = {}
-        #self.max_heap_size: int = max_heap_size
         self.collect_alignments_strategy: CollectPreviousAlignmentsStrategy = (
             collect_alignments_strategy(network, node_id))
         self.heap_pruning_strategy: HeapPruningStrategy = pruning_strategy
@@ -79,6 +78,7 @@ class InsightNode:
         self.state_explorer[case_id] = StateExplorer(
             self.heap_pruning_strategy.prune(self.state_explorer[case_id].get_all_states())
         )
+        print(self.state_explorer[case_id].top().alignment)
         return self.state_explorer[case_id].top().cost
 
     def integrate_previous_state(

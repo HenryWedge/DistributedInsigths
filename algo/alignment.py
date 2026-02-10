@@ -17,7 +17,7 @@ class Alignment:
         self.log_moves.append(str(activity))
 
     def log_move(self, activity):
-        self.log_moves.append(SKIP)
+        self.log_moves.append(f"SKIP({activity})")
         self.cost += LOG_MOVE_COST
 
     def model_move(self, activity, steps, original):

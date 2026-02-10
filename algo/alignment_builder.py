@@ -9,7 +9,6 @@ from algo.trie_node import Node, TrieNode
 from algo.trie_traverser import TrieTraverser
 
 class AlignmentBuilder:
-
     def build_alignment(self, node: TrieNode, time, state_explorer: StateExplorer) -> List[StateItem]:
         new_state_items: List[StateItem] = []
         while not state_explorer.is_empty():
@@ -43,7 +42,7 @@ class AlignmentBuilder:
         trie_traverser = TrieTraverser(state.trie)
 
         new_trie, cost = trie_traverser.find_activity_in_trie(node)
-        current_alignment.alignment.model_move(node, cost)
+        current_alignment.alignment.model_move(node, cost, state.trie.label)
         if not new_trie:
             return None
         return StateItem(state.cost + cost * MDL_MOVE_COST, new_trie, current_alignment, node.get_activity())

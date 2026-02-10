@@ -28,6 +28,9 @@ class NetworkTopologyEventLogAdapter:
             for event in event_log.traces[trace]:
                 self.network_topology.process_discovery_event(event)
 
+    def init_insight_nodes(self):
+        self.network_topology.init_insight_nodes()
+
     def insights(self, event_log: EventLog):
         for trace in event_log.traces:
             for event in event_log.traces[trace]:
