@@ -39,11 +39,18 @@ class InsightNode:
         self.observed_events = {}
 
     def get_current_state(self, event, target=None) -> StateWithTime | None:
-        if target == "F":
-            print("")
-
         if event.case_id not in self.state_explorer:
             return None
+
+        all_states_item = StateWithTime(
+            self.latest_event[event.case_id].time,
+            self.state_explorer[event.case_id].get_all_states(),
+            Node(self.node_id, self.latest_event[event.case_id].activity)
+        )
+
+        if not target:
+            return all_states_item
+
         for state in self.state_explorer[event.case_id].get_all_states():
             if state.trie.label.get_activity() == target:
                 return StateWithTime(
@@ -60,71 +67,69 @@ class InsightNode:
                     )],
                     Node(self.node_id, target)
                 )
-        if target:
-            alignment = self.alignment_builder.find_alignment_for_trace(
-                self.observed_events[event.case_id],
-                self.local_trie,
-                Activity(target)
-            )
-        if alignment and alignment[0]:
-            state_items = []
-            if SKIP in alignment[0].model_moves[0]:
-                for state_item in self.state_explorer[event.case_id].get_all_states():
-                    this_state_item = deepcopy(state_item)
-                    current_alignment = deepcopy(this_state_item.alignment.alignment)
-                    current_alignment.append(alignment[0].skip_first())
-                    state_items.append(current_alignment)
-                return StateWithTime(
+
+        alignment = self.alignment_builder.find_alignment_for_trace(
+            self.observed_events[event.case_id],
+            self.local_trie,
+            Activity(target)
+        )
+        if not alignment:
+            return all_states_item
+        state_items = []
+
+        if not SKIP in alignment.model_moves[0]:
+            new_state_items = [StateItem(
+                alignment.cost,
+                trie=None,
+                alignment=AlignmentTimestamped(
+                    alignment,
                     event.time,
-                    [
-                        StateItem(
-                            item.cost,
-                            None,
-                            AlignmentTimestamped(
-                                item,
-                                event.time,
-                                Node(self.node_id, target)
-                            ),
-                            target
-                        )
-                        for item in state_items
-                    ],
                     Node(self.node_id, target)
+                ),
+                last_activity=target
+            )]
+        else:
+            for state_item in self.state_explorer[event.case_id].get_all_states():
+                this_state_item = deepcopy(state_item)
+                current_alignment = deepcopy(this_state_item.alignment.alignment)
+                current_alignment.append(alignment.skip_first())
+                state_items.append(current_alignment)
+            new_state_items = [
+                StateItem(
+                    item.cost,
+                    None,
+                    AlignmentTimestamped(
+                        item,
+                        event.time,
+                        Node(self.node_id, target)
+                    ),
+                    target
                 )
-            else:
-                return StateWithTime(
-                    event.time,
-                    [StateItem(
-                        alignment[0].cost,
-                        trie=None,
-                        alignment=AlignmentTimestamped(
-                            alignment[0],
-                            event.time,
-                            Node(self.node_id, target)
-                        ),
-                        last_activity=target
-                    )],
-                    Node(self.node_id, target)
-                )
+                for item in state_items
+            ]
 
         return StateWithTime(
-            self.latest_event[event.case_id].time,
-            self.state_explorer[event.case_id].get_all_states(),
-            Node(self.node_id, self.latest_event[event.case_id].activity)
+            event.time,
+            new_state_items,
+            Node(self.node_id, target)
         )
+
 
     def _insert_new_states(self, case_id, new_alignment_states: List[StateItem]):
         for state in new_alignment_states:
             self.state_explorer[case_id].insert_state(state)
 
+
     def is_new_alignment(self, case_id: str, latest_alignment_state: StateWithTime):
         return not case_id in self.latest_event or latest_alignment_state.time > self.latest_event[case_id].time
+
 
     def find_entrypoint_in_model(self, node: TrieNode):
         # TODO hrei consider cost
         return [
             TrieTraverser(self.local_trie).find_activity_in_trie(node)[0]
         ]
+
 
     def process_event(self, event):
         print(event.activity)
@@ -160,6 +165,7 @@ class InsightNode:
         print(self.state_explorer[case_id].top().alignment)
         return self.state_explorer[case_id].top().cost
 
+
     def integrate_previous_state(
             self,
             alignment_states: List[StateWithTime],
@@ -181,6 +187,7 @@ class InsightNode:
         self.state_explorer[case_id].clear()
         self.accept_external_states(case_id, latest_alignment_state, latest_tries)
 
+
     def accept_external_states(
             self,
             case_id,
@@ -190,6 +197,7 @@ class InsightNode:
             for latest_trie in latest_tries:
                 state_item = StateItem(state.cost, latest_trie, state.alignment, state.last_activity)
                 self.state_explorer[case_id].insert_state(state_item)
+
 
     def _init_state_for_case(self, event: Event, has_trace_started_on_other_node=True):
         trie = None
@@ -210,6 +218,7 @@ class InsightNode:
         )
 
     def get_distinct_tries(self, states: List[StateItem]):
+
         tries = []
         for state in states:
             if not state.trie in tries:

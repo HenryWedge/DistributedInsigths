@@ -79,7 +79,7 @@ class AlignmentBuilder:
                     final_history.log_move(trace[trace_idx])
                     final_cost += 1
                     trace_idx += 1
-                return final_history, final_cost
+                return final_history
 
             state = (id(current_node), trace_idx)
             if state in visited:
@@ -119,4 +119,4 @@ class AlignmentBuilder:
                     this_history
                 ))
 
-        return None, float('inf')
+        return None
