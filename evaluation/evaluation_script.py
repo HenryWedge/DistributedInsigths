@@ -1,8 +1,10 @@
 import csv
+import io
 from statistics import median, mean
 from typing import Dict, List
 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 
 from algo.event_distribution_function import EventLocationBasedDistributionFunction, EventConstantDistributionFunction
@@ -14,11 +16,13 @@ from gt.event_log_splitter import EventLogSplitter
 from gt.network_topology_event_log_adapter import NetworkTopologyEventLogAdapter
 
 
-def write_results(data):
-    with open("results.txt", "wb") as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        for line in data:
-            writer.writerow(line)
+def write_results(filename, data):
+    dataframe = pd.DataFrame(data)
+    dataframe.to_csv(filename, index=False)
+    #with open("datei.csv", "w", newline="", encoding="utf-8") as f:
+    #    writer = csv.writer(f)
+    #    for element in data:
+    #        writer.writerow([element])
 
 def compare_topologies(alignments1, alignments2):
     return calculate_accuracy(alignments1, alignments2)
@@ -103,66 +107,105 @@ def visualize_result(dataset):
 
 
 if __name__ == '__main__':
+    training_traces_count = 1000
     test_traces_count = 100
 
-    #event_log_splitter = EventLogSplitter("../gt/test/datasets/BPI_Challenge_2012.xes", location_key="org:resource")
-    event_log_splitter = EventLogSplitter("../gt/test/datasets/Sepsis.xes", location_key="org:group")
+    event_log_splitter = EventLogSplitter("../gt/test/datasets/BPI_Challenge_2012.xes", location_key="org:resource")
+    #event_log_splitter = EventLogSplitter("../gt/test/datasets/Sepsis.xes", location_key="org:group")
     #event_log_splitter = EventLogSplitter("../gt/test/datasets/PermitLog.xes", location_key="org:resource")
     #event_log_splitter = EventLogSplitter("../gt/test/datasets/MainProcess.xes", location_key="org:resource")
 
-    training = event_log_splitter.get_training_data()
+    training = event_log_splitter.get_training_data(training_traces_count)
     test = event_log_splitter.get_test_data(test_traces_count)
+    number_of_topologies = 5
 
-    decentral_topology = NetworkTopologyEventLogAdapter(
-        event_distribution_function=EventLocationBasedDistributionFunction(),
-        pruning_strategy=PruneHighestCostStrategy(100),
-        collect_alignments_strategy=
-        lambda network, node_id:
-        CollectPreviousAlignmentsStrategyAskAll(
-            network,
-            node_id
+    decentral_topology_variants = []
+    for i in range(number_of_topologies - 1):
+        decentral_topology_variants.append(
+            NetworkTopologyEventLogAdapter(
+                event_distribution_function=EventLocationBasedDistributionFunction(),
+                pruning_strategy=PruneHighestCostStrategy(10**i),
+                collect_alignments_strategy=
+                lambda network, node_id:
+                CollectPreviousAlignmentsStrategyAskAll(
+                    network,
+                    node_id
+                )
+            )
         )
-    )
 
-    decentral_topology2 = NetworkTopologyEventLogAdapter(
-        event_distribution_function=EventLocationBasedDistributionFunction(),
-        pruning_strategy=PruneHighestCostStrategy(10),
-        collect_alignments_strategy=
-        lambda network, node_id:
-        CollectPreviousAlignmentsStrategyAskAll(
-            network,
-            node_id
-        )
-    )
-
-    #central_topology = NetworkTopologyEventLogAdapter(
-    #    event_distribution_function=EventConstantDistributionFunction(),
-    #    pruning_strategy=PruneHighestCostStrategy(10),
-    #    # pruning_strategy=DoNotPruneStrategy(),
+    #decentral_topology_variants.append(NetworkTopologyEventLogAdapter(
+    #    event_distribution_function=EventLocationBasedDistributionFunction(),
+    #    pruning_strategy=DoNotPruneStrategy(),
     #    collect_alignments_strategy=
     #    lambda network, node_id:
     #    CollectPreviousAlignmentsStrategyAskAll(
     #        network,
     #        node_id
     #    )
-    #)
-    training_data = event_log_splitter.get_training_data()
-    test_data = event_log_splitter.get_test_data(test_traces_count)
+    #))
 
-    #topology1_metrics = calculate_metrics(central_topology, training_data, test_data)
-    topology2_metrics = calculate_metrics(decentral_topology, training_data, test_data)
-    topology3_metrics = calculate_metrics(decentral_topology2, training_data, test_data)
+    central_topology_variants = []
+
+    for i in range(number_of_topologies-1):
+        central_topology_variants.append(
+            NetworkTopologyEventLogAdapter(
+                event_distribution_function=EventConstantDistributionFunction(),
+                pruning_strategy=PruneHighestCostStrategy(10**i),
+                collect_alignments_strategy=
+                lambda network, node_id:
+                CollectPreviousAlignmentsStrategyAskAll(
+                    network,
+                    node_id
+                )
+            )
+        )
+
+    central_topology_variants.append(
+        NetworkTopologyEventLogAdapter(
+            event_distribution_function=EventConstantDistributionFunction(),
+            pruning_strategy=DoNotPruneStrategy(),
+            collect_alignments_strategy=
+            lambda network, node_id:
+            CollectPreviousAlignmentsStrategyAskAll(
+                network,
+                node_id
+            )
+        )
+    )
+
+    #topology1_metrics = calculate_metrics(central_topology, training, test)
+
+    metrics = []
+    for i in range(number_of_topologies-1):
+        metrics.append(calculate_metrics(decentral_topology_variants[i], training, test))
 
     #accuracy, precision, recall = compare_topologies(topology1_metrics.alignments, topology2_metrics.alignments)
     #accuracy2, precision2, recall2 = compare_topologies(topology1_metrics.alignments, topology3_metrics.alignments)
-    visualize_result([
-        #(topology1_metrics.network_requests, "network requests 1"),
-        (topology2_metrics.heap_size, "Heap size 2"),
-        (topology3_metrics.heap_size, "Heap size 3"),
-        #(accuracy, 'Accuracy1'),
-        #(accuracy2, 'Accuracy2'),
-        #(recall, 'Recall1'),
-        #(recall2, 'Recall2'),
-        #(precision, 'Precision1'),
-        #(precision2, 'Precision2'),
-    ])
+
+    results_dictionary_alignments = {}
+    results_dictionary_processing_times = {}
+    results_dictionary_heap_sizes = {}
+    results_dictionary_network_requests = {}
+    for i in range(number_of_topologies-1):
+        results_dictionary_alignments[f"prune_{10**i}_alignments"] = list(metrics[i].alignments.values())
+        results_dictionary_processing_times[f"prune{10**i}_processing_time"] = list(metrics[i].processing_time)
+        results_dictionary_heap_sizes[f"prune{10**i}_heap_size"] = list(metrics[i].heap_size)
+        results_dictionary_network_requests[f"prune{10**i}_heap_size"] = list(metrics[i].network_requests)
+
+    write_results("result_alignment_decentral2.csv", results_dictionary_alignments)
+    write_results("result_processing_time_decentral2.csv", results_dictionary_processing_times)
+    write_results("result_heap_size_decentral2.csv", results_dictionary_heap_sizes)
+    write_results("result_network_requests_decentral.csv", results_dictionary_network_requests)
+
+    ##visualize_result([
+    ##    #(topology1_metrics.network_requests, "network requests 1"),
+    ##    (topology2_metrics.heap_size, "Heap size 2"),
+    ##    (topology3_metrics.heap_size, "Heap size 3"),
+    ##    #(accuracy, 'Accuracy1'),
+    ##    #(accuracy2, 'Accuracy2'),
+    ##    #(recall, 'Recall1'),
+    ##    #(recall2, 'Recall2'),
+    ##    #(precision, 'Precision1'),
+    ##    #(precision2, 'Precision2'),
+    ##])

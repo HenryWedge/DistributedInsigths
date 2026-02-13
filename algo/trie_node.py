@@ -41,6 +41,9 @@ class Activity(TrieNode):
     def get_activity(self):
         return self.content
 
+    def __lt__(self, other):
+        return False
+
 class EndActivity(TrieNode):
     def __init__(self):
         super().__init__(END_MARKER)

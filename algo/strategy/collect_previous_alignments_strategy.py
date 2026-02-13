@@ -10,7 +10,7 @@ class CollectPreviousAlignmentsStrategy(ABC):
         self.network = network
         self.node_id = node_id
 
-    def collect_alignment_states(self, event: Event) -> List[StateWithTime]:
+    def collect_alignment_states(self, event: Event, target: str) -> List[StateWithTime]:
         pass
 
     def get_number_of_network_requests(self) -> List[int]:
@@ -22,11 +22,11 @@ class CollectPreviousAlignmentsStrategyAskAll(CollectPreviousAlignmentsStrategy)
         self.network_requests = []
         self.current_network_request = 0
 
-    def collect_alignment_states(self, event: Event) -> List[StateWithTime]:
+    def collect_alignment_states(self, event: Event, target: str = "") -> List[StateWithTime]:
         alignment_states: List[StateWithTime] = []
         self.current_network_request = 0
         for node in self.network.get_all_nodes(self.node_id):
-            alignment_state = node.get_current_state(event)
+            alignment_state = node.get_current_state(event, target)
             self.current_network_request += 1
             if alignment_state is not None:
                 alignment_states.append(alignment_state)
@@ -35,7 +35,6 @@ class CollectPreviousAlignmentsStrategyAskAll(CollectPreviousAlignmentsStrategy)
 
     def get_number_of_network_requests(self) -> List[int]:
         return self.network_requests
-
 
 class NodeOccurrence:
     def __init__(self, occurrence_count: int, node):

@@ -17,13 +17,30 @@ class Alignment:
         self.log_moves.append(str(activity))
 
     def log_move(self, activity):
-        self.log_moves.append(f"SKIP({activity})")
+        self.log_moves.append(f"{SKIP}({activity})")
+        self.model_moves.append(str(activity))
         self.cost += LOG_MOVE_COST
 
-    def model_move(self, activity, steps, original):
-        self.model_moves.append(f"{SKIP}({original})")
-        self.model_moves.append(str(activity))
+    def model_move(self, activity, steps=1, original=None):
+        self.log_moves.append(str(activity))
+        self.model_moves.append(f"{SKIP}({str(activity)})")
+        #self.model_moves.append(str(activity))
         self.cost += steps*MDL_MOVE_COST
+
+    def append(self, alignment: 'Alignment'):
+        self.model_moves.extend(alignment.model_moves)
+        self.log_moves.extend(alignment.log_moves)
+        self.cost = alignment.cost
+
+    def skip_first(self):
+        alignment = Alignment()
+        alignment.model_moves = self.model_moves[1:]
+        alignment.log_moves = self.log_moves[1:]
+        alignment.cost = self.cost
+        return alignment
 
     def __str__(self):
         return f"<log:{self.log_moves},mdl:{self.model_moves},cst:{self.cost}>"
+
+    def __lt__(self, other):
+        return False

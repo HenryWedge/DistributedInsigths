@@ -12,7 +12,7 @@ class TrieTraverser:
 
     def find_activity_in_trie(self, activity: TrieNode) -> tuple[NewTrie | None, int]:
         if self.trie.has_child_with_label(activity):
-            return self.trie, 0
+            return self.trie.traverse(activity), 0
 
         initial_queue: List[tuple[NewTrie, int]] = []
         for children in self.trie.get_children():
@@ -26,11 +26,6 @@ class TrieTraverser:
                 continue
 
             if current_trie[0].label == activity:
-                #resulting_trie = current_trie[0].get_children()
-                #new_trie: NewTrie = NewTrie("#")
-                #for child in resulting_trie:
-                #    new_trie.add_child(child)
-                #return new_trie, current_trie[1]
                 return current_trie
 
             for children in current_trie[0].get_children():
