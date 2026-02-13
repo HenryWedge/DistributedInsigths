@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 SKIP = ">"
 LOG_MOVE_COST = 1
 MDL_MOVE_COST = 1
@@ -27,10 +29,15 @@ class Alignment:
         #self.model_moves.append(str(activity))
         self.cost += steps*MDL_MOVE_COST
 
-    def append(self, alignment: 'Alignment'):
-        self.model_moves.extend(alignment.model_moves)
-        self.log_moves.extend(alignment.log_moves)
-        self.cost = alignment.cost
+    def concatenate(self, alignment: 'Alignment'):
+        new_alignment = Alignment()
+        new_alignment.model_moves.extend(deepcopy(self.model_moves))
+        new_alignment.model_moves.extend(deepcopy(alignment.model_moves))
+        new_alignment.log_moves.extend(deepcopy(self.log_moves))
+        new_alignment.log_moves.extend(deepcopy(alignment.log_moves))
+        new_alignment.cost = alignment.cost
+        new_alignment.cost += self.cost
+        return deepcopy(new_alignment)
 
     def skip_first(self):
         alignment = Alignment()

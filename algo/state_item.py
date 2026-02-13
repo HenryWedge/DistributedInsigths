@@ -14,7 +14,10 @@ class StateItem:
         self.trie: NewTrie = trie
         self.last_activity: str = last_activity
         self.alignment: AlignmentTimestamped = alignment
-        self.cost: int = self.alignment.alignment.cost
+        if self.alignment:
+            self.cost: int = self.alignment.alignment.cost
+        else:
+            self.cost: int = 0
 
     def __str__(self):
         return f"Cost: {self.cost}\n{self.alignment}\n{self.trie}"

@@ -1,5 +1,4 @@
 import string
-import time
 from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List, Any, Callable
@@ -41,6 +40,8 @@ class InsightNode:
     def get_current_state(self, event, target=None) -> StateWithTime | None:
         if event.case_id not in self.state_explorer:
             return None
+        if target == "H":
+            print("")
 
         all_states_item = StateWithTime(
             self.latest_event[event.case_id].time,
@@ -50,8 +51,10 @@ class InsightNode:
 
         if not target:
             return all_states_item
-
+        self.state_explorer[event.case_id].insert_state(StateItem(0, self.local_trie, None, None))
         for state in self.state_explorer[event.case_id].get_all_states():
+            if not state.trie:
+                continue
             if state.trie.label.get_activity() == target:
                 return StateWithTime(
                     event.time,
@@ -68,51 +71,56 @@ class InsightNode:
                     Node(self.node_id, target)
                 )
 
-        alignment = self.alignment_builder.find_alignment_for_trace(
-            self.observed_events[event.case_id],
-            self.local_trie,
-            Activity(target)
-        )
-        if not alignment:
-            return all_states_item
-        state_items = []
+            alignment = self.alignment_builder.find_alignment_for_trace(
+                self.observed_events[event.case_id],
+                state.trie,
+                Activity(target)
+            )
+            if not alignment:
+                continue
 
-        if not SKIP in alignment.model_moves[0]:
-            new_state_items = [StateItem(
-                alignment.cost,
-                trie=None,
-                alignment=AlignmentTimestamped(
-                    alignment,
-                    event.time,
-                    Node(self.node_id, target)
-                ),
-                last_activity=target
-            )]
-        else:
-            for state_item in self.state_explorer[event.case_id].get_all_states():
-                this_state_item = deepcopy(state_item)
-                current_alignment = deepcopy(this_state_item.alignment.alignment)
-                current_alignment.append(alignment.skip_first())
-                state_items.append(current_alignment)
-            new_state_items = [
-                StateItem(
-                    item.cost,
-                    None,
-                    AlignmentTimestamped(
-                        item,
+            state_items = []
+
+            if not SKIP in alignment.model_moves[0]:
+                new_state_items = [StateItem(
+                    alignment.cost,
+                    trie=None,
+                    alignment=AlignmentTimestamped(
+                        alignment,
                         event.time,
                         Node(self.node_id, target)
                     ),
-                    target
-                )
-                for item in state_items
-            ]
+                    last_activity=target
+                )]
+            else:
+                #for state_item in self.state_explorer[event.case_id].get_all_states():
+                this_state_item = deepcopy(state)
+                if not this_state_item.alignment:
+                    continue
+                current_alignment = deepcopy(this_state_item.alignment.alignment)
+                current_alignment.append(alignment.skip_first())
+                state_items.append(current_alignment)
+                new_state_items = [
+                    StateItem(
+                        item.cost,
+                        None,
+                        AlignmentTimestamped(
+                            item,
+                            event.time,
+                            Node(self.node_id, target)
+                        ),
+                        target
+                    )
+                    for item in state_items
+                ]
 
-        return StateWithTime(
-            event.time,
-            new_state_items,
-            Node(self.node_id, target)
-        )
+            return StateWithTime(
+                event.time,
+                new_state_items,
+                Node(self.node_id, target)
+            )
+
+        return all_states_item
 
 
     def _insert_new_states(self, case_id, new_alignment_states: List[StateItem]):
@@ -132,9 +140,6 @@ class InsightNode:
 
 
     def process_event(self, event):
-        print(event.activity)
-        if event.activity == "F":
-            print("")
         case_id = event.case_id
         if not case_id in self.observed_events:
             self.observed_events[case_id] = []
@@ -218,7 +223,6 @@ class InsightNode:
         )
 
     def get_distinct_tries(self, states: List[StateItem]):
-
         tries = []
         for state in states:
             if not state.trie in tries:

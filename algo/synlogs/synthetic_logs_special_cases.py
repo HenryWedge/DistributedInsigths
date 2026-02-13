@@ -17,12 +17,13 @@ class SyntheticLogsSpecialCases:
         event_log.add_event(Event(case_id="c1", activity="B", location="N1", time=t+timedelta(0, 2)))
         event_log.add_event(Event(case_id="c1", activity="E", location="N2", time=t+timedelta(0, 3)))
         event_log.add_event(Event(case_id="c1", activity="F", location="N2", time=t+timedelta(0, 4)))
-        event_log.add_event(Event(case_id="c1", activity="G", location="N4", time=t+timedelta(0, 5)))
+        event_log.add_event(Event(case_id="c1", activity="H", location="N2", time=t+timedelta(0, 5)))
+        event_log.add_event(Event(case_id="c1", activity="G", location="N4", time=t+timedelta(0, 6)))
 
-        event_log.add_event(Event(case_id="c2", activity="A", location="N1", time=t+timedelta(0, 6)))
-        event_log.add_event(Event(case_id="c2", activity="C", location="N1", time=t+timedelta(0, 7)))
-        event_log.add_event(Event(case_id="c2", activity="D", location="N3", time=t+timedelta(0, 8)))
-        event_log.add_event(Event(case_id="c2", activity="G", location="N4", time=t+timedelta(0, 9)))
+        event_log.add_event(Event(case_id="c2", activity="A", location="N1", time=t+timedelta(0, 7)))
+        event_log.add_event(Event(case_id="c2", activity="C", location="N1", time=t+timedelta(0, 8)))
+        event_log.add_event(Event(case_id="c2", activity="D", location="N3", time=t+timedelta(0, 9)))
+        event_log.add_event(Event(case_id="c2", activity="G", location="N4", time=t+timedelta(0, 10)))
         return event_log
 
     def get_test_data(self):

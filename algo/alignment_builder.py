@@ -101,7 +101,8 @@ class AlignmentBuilder:
 
             for child in current_node.get_children():
                 this_history = deepcopy(history)
-                this_history.model_move(child)
+                if child.label.is_activity():
+                    this_history.model_move(child)
                 heapq.heappush(queue, (
                     cost + 1,
                     child,

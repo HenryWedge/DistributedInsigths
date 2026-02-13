@@ -6,6 +6,7 @@ from algo.discovery_node import DiscoveryNode
 from algo.event import Event
 from algo.event_distribution_function import EventDistributionFunction
 from algo.insight_node import InsightNode
+from algo.insight_node2 import InsightNode2
 from algo.network import Network
 from algo.strategy.collect_previous_alignments_strategy import CollectPreviousAlignmentsStrategy
 from algo.strategy.heap_pruning_strategy import HeapPruningStrategy
@@ -30,7 +31,7 @@ class NetworkTopology:
 
     def init_insight_nodes(self):
         for location in self.discovery_nodes:
-            node = InsightNode(
+            node = InsightNode2(
                 self.discovery_nodes[location].local_trie,
                 location,
                 self.network_insights,
@@ -48,7 +49,7 @@ class NetworkTopology:
         insight_node: InsightNode = self.insight_nodes[location]
         start = time()
         insight_node.process_event(event)
-        self.heap_size_monitor.append(len(insight_node.state_explorer[event.case_id].heap))
+        #self.heap_size_monitor.append(len(insight_node.state_explorer[event.case_id].heap))
         end = time()
         self.monitor.append(round(1000 * (end - start), 2))
 
