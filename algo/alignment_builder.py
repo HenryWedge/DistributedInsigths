@@ -10,7 +10,6 @@ from algo.state_item import StateItem
 from algo.trie_node import Node, TrieNode, Activity
 from algo.trie_traverser import TrieTraverser
 
-
 class AlignmentBuilder:
     def build_alignment(self, node: TrieNode, time, state_explorer: StateExplorer) -> List[StateItem]:
         new_state_items: List[StateItem] = []
@@ -46,8 +45,10 @@ class AlignmentBuilder:
         current_alignment = self._move_event_data_to_alignment(node, time, state)
         trie_traverser = TrieTraverser(state.trie)
 
-        new_trie, cost = trie_traverser.find_activity_in_trie(node)
-        current_alignment.alignment.model_move(node, cost, state.trie.label)
+        new_trie, cost, path = trie_traverser.find_activity_in_trie(node)
+        for child in path[:-1]:
+            current_alignment.alignment.model_move(child, cost, None)
+        current_alignment.alignment.sync_move(path[-1])
         if not new_trie:
             return None
         return StateItem(state.cost + cost * MDL_MOVE_COST, new_trie, current_alignment, node.get_activity())
@@ -64,7 +65,6 @@ class AlignmentBuilder:
     def _move_event_data_to_alignment(self, node: TrieNode, time, state: StateItem) -> AlignmentTimestamped:
         current_alignment = deepcopy(state.alignment)
         current_alignment.timestamp = time
-        # current_alignment.node = Node(event.location)
         return current_alignment
 
     def find_alignment_for_trace(self, trace: List[Activity], trie: NewTrie, target_label):

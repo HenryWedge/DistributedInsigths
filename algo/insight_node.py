@@ -3,7 +3,7 @@ import time
 from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List, Any, Callable
-from algo.alignment import Alignment
+from algo.alignment import Alignment, SKIP
 from algo.alignment_builder import AlignmentBuilder
 from algo.alignment_timestamped import AlignmentTimestamped
 from algo.event import Event
@@ -40,49 +40,72 @@ class InsightNode:
 
     def get_current_state(self, event, target=None) -> StateWithTime | None:
         if target == "F":
-            print("Stop")
+            print("")
+
         if event.case_id not in self.state_explorer:
             return None
+        for state in self.state_explorer[event.case_id].get_all_states():
+            if state.trie.label.get_activity() == target:
+                return StateWithTime(
+                    event.time,
+                    [StateItem(
+                        state.alignment.alignment.cost,
+                        trie=state.trie,
+                        alignment=AlignmentTimestamped(
+                            state.alignment.alignment,
+                            event.time,
+                            Node(self.node_id, target)
+                        ),
+                        last_activity=target
+                    )],
+                    Node(self.node_id, target)
+                )
         if target:
             alignment = self.alignment_builder.find_alignment_for_trace(
                 self.observed_events[event.case_id],
                 self.local_trie,
                 Activity(target)
             )
-            if alignment and alignment[0]:
-                print(f"Alignment: {alignment[0]}")
-                state_items = []
-                if ">" in alignment[0].model_moves[0]:
-                    for state_item in self.state_explorer[event.case_id].get_all_states():
-                        this_state_item = deepcopy(state_item)
-                        current_alignment = deepcopy(this_state_item.alignment.alignment)
-                        current_alignment.append(alignment[0].skip_first())
-                        state_items.append(current_alignment)
-                    return StateWithTime(
-                        event.time,
-                        [
-                            StateItem(
-                                item.cost,
-                                None,
-                                AlignmentTimestamped(
-                                    item,
-                                    event.time,
-                                    Node(self.node_id, target)
-                                ),
-                                target
-                            )
-                            for item in state_items
-                        ],
-                        Node(self.node_id, target)
-                    )
-                else:
-                    return StateWithTime(
-                        event.time,
-                        self.state_explorer[event.case_id].get_all_states(),
-                        Node(self.node_id, target)
-                    )
-
-
+        if alignment and alignment[0]:
+            state_items = []
+            if SKIP in alignment[0].model_moves[0]:
+                for state_item in self.state_explorer[event.case_id].get_all_states():
+                    this_state_item = deepcopy(state_item)
+                    current_alignment = deepcopy(this_state_item.alignment.alignment)
+                    current_alignment.append(alignment[0].skip_first())
+                    state_items.append(current_alignment)
+                return StateWithTime(
+                    event.time,
+                    [
+                        StateItem(
+                            item.cost,
+                            None,
+                            AlignmentTimestamped(
+                                item,
+                                event.time,
+                                Node(self.node_id, target)
+                            ),
+                            target
+                        )
+                        for item in state_items
+                    ],
+                    Node(self.node_id, target)
+                )
+            else:
+                return StateWithTime(
+                    event.time,
+                    [StateItem(
+                        alignment[0].cost,
+                        trie=None,
+                        alignment=AlignmentTimestamped(
+                            alignment[0],
+                            event.time,
+                            Node(self.node_id, target)
+                        ),
+                        last_activity=target
+                    )],
+                    Node(self.node_id, target)
+                )
 
         return StateWithTime(
             self.latest_event[event.case_id].time,
@@ -104,16 +127,15 @@ class InsightNode:
         ]
 
     def process_event(self, event):
-        if event.activity == "G":
-            print("Stop")
-
+        print(event.activity)
+        if event.activity == "F":
+            print("")
         case_id = event.case_id
         if not case_id in self.observed_events:
             self.observed_events[case_id] = []
         self.observed_events[case_id].append(Activity(event.activity))
 
         targets = [child.label.get_activity() for child in self.local_trie.children if not child.label.is_activity()]
-        print(targets)
         if targets:
             target = targets[0]
         else:
@@ -144,7 +166,6 @@ class InsightNode:
             case_id,
             has_trace_started_on_other_node: bool
     ):
-
         if not alignment_states:
             return
         #
@@ -156,14 +177,9 @@ class InsightNode:
         # next_node = latest_alignment_state.node
         if has_trace_started_on_other_node:
             latest_tries = self.find_entrypoint_in_model(latest_alignment_state.node)
-        #    next_node = latest_tries[0].label
-        #
+
         self.state_explorer[case_id].clear()
         self.accept_external_states(case_id, latest_alignment_state, latest_tries)
-        # new_alignment_states = self.alignment_builder.build_alignment(
-        #    next_node, latest_alignment_state.time, self.state_explorer[case_id]
-        # )
-        # self._insert_new_states(case_id, new_alignment_states)
 
     def accept_external_states(
             self,
