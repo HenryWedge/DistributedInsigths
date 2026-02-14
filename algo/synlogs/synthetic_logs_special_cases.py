@@ -57,9 +57,9 @@ class SyntheticLogsSpecialCases:
                     node_id
                 )
             )
-        #central.discovery(self.get_training_data())
-        #central.init_insight_nodes()
-        #central.insights(self.get_test_data())
+        central.discovery(self.get_training_data())
+        central.init_insight_nodes()
+        central.insights(self.get_test_data())
 
         decentral.discovery(self.get_training_data())
         decentral.init_insight_nodes()

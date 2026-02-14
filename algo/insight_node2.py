@@ -37,7 +37,7 @@ class InsightNode2:
     def get_current_state(self, case_id, target) -> tuple[int, StateWithTime | None]:
         if case_id not in self.observed_events:
             return 0, None
-        alignment = self.alignment_builder.find_alignment_for_trace([Activity(event.activity) for event in self.observed_events[case_id]], self.local_trie, Activity(target))
+        alignment = self.alignment_builder.dijkstra([Activity(event.activity) for event in self.observed_events[case_id]], self.local_trie, Activity(target))
         return self.observed_events[case_id][-1].time, self.external_alignment.get(case_id).concatenate(alignment)
 
     def process_event(self, event):
@@ -63,7 +63,7 @@ class InsightNode2:
         if last_alignments_per_node:
             self.external_alignment[case_id] = max(last_alignments_per_node)[1]
 
-        self.internal_alignment[case_id] = self.alignment_builder.find_alignment_for_trace(
+        self.internal_alignment[case_id] = self.alignment_builder.dijkstra(
             [Activity(event.activity) for event in self.observed_events[case_id]], self.local_trie, Activity(event.activity)
         )
 

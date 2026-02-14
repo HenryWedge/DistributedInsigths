@@ -112,6 +112,8 @@ class AlignmentBuilder:
 
             if trace_idx < len(trace):
                 this_history = deepcopy(history)
+                if trace[trace_idx] == Activity("D"):
+                    print("Stop")
                 this_history.log_move(trace[trace_idx])
                 heapq.heappush(queue, (
                     cost + 1,
@@ -121,3 +123,29 @@ class AlignmentBuilder:
                 ))
 
         return None
+
+    def dijkstra(self, trace: List[Activity], trie: NewTrie, target_label):
+        queue = [(0, trie, Alignment())]
+        for activity in trace:
+            while queue:
+                new_state = []
+                (cost, current_trie, alignment) = heapq.heappop(queue)
+                if current_trie.label == target_label:
+                    return alignment
+                if current_trie.has_child_with_label(activity):
+                    this_alignment = deepcopy(alignment)
+                    this_alignment.sync_move(activity)
+                    new_state.append((cost, current_trie.traverse(activity), this_alignment))
+                next_trie, cost, path = TrieTraverser(trie).find_activity_in_trie(activity)
+                if next_trie:
+                    this_alignment = deepcopy(alignment)
+                    for a in path:
+                        this_alignment.model_move(a, 1, None)
+                    new_state.append((cost + len(path), next_trie, this_alignment))
+                this_alignment = deepcopy(alignment)
+                this_alignment.log_move(activity)
+                new_state.append((cost + 1, current_trie, this_alignment))
+                for s in new_state:
+                    heapq.heappush(queue, s)
+
+        return heapq.nsmallest(1, queue)[0][2]
