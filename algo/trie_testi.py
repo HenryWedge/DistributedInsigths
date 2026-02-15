@@ -1,5 +1,4 @@
 import heapq
-from importlib.metadata import entry_points
 from typing import List
 
 from algo.network import Network
@@ -27,6 +26,9 @@ class Trie:
 
     def get_child(self, label) -> 'Trie':
         return [child for child in self.children if child.label == label][0]
+
+    def traverse(self, label):
+        return self.get_child(label).children[0]
 
     def get_children(self):
         return self.children
@@ -66,6 +68,14 @@ class LocatedActivity:
     def __hash__(self):
         return hash(self.activity)
 
+class AlignmentResponse:
+    def __init__(self, timestamp, alignment, entry_point):
+        self.timestamp = timestamp
+        self.alignment = alignment
+        self.entry_point = entry_point
+
+    def __lt__(self, other):
+        return self.timestamp < other.timestamp
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
@@ -78,25 +88,35 @@ class NetworkNode:
         self.model = model
         self.i = 0
 
+    def _trie_without_entrypoints(self):
+        trie = Trie()
+        all_children = self.model.get_children()
+        start_activities = [child for child in all_children if child.label.location == self.node_id]
+        entry_points = [child for child in self.model.get_children() if child.label.location != self.node_id]
+        activity_after_entrypoint = [child for entry_point in entry_points for child in entry_point.get_children()]
+        trie.children.extend(start_activities)
+        trie.children.extend(activity_after_entrypoint)
+        return trie
+
     def get_alignment(self, target):
         target_activity = LocatedActivity(target.label.activity, self.node_id)
         internal_alignment = calculate_alignment(
-            self.observed_events,  # + [LocatedActivity(target.label.activity, self.node_id)],
-            self.model,
+            self.observed_events,
+            self._trie_without_entrypoints(),
             target_activity)
-        return self.i, self.external_alignment + internal_alignment, target_activity
+        return AlignmentResponse(self.i, self.external_alignment + internal_alignment, target_activity)
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
         self.observed_events.append(located_activity)
-        external_alignments = []
+        external_alignments: List[AlignmentResponse] = []
         for child in [c for c in self.model.get_children() if c.label.location != self.node_id]:
             external_alignments.append(self.network.get_node(child.label.location).get_alignment(child))
         entry_point = None
         if external_alignments:
             latest_alignment = max(external_alignments)
-            entry_point = latest_alignment[2]
-            self.external_alignment = latest_alignment[1]
+            entry_point = latest_alignment.entry_point
+            self.external_alignment = latest_alignment.alignment
 
         if entry_point:
             model = self.model.get_child(entry_point)
@@ -120,7 +140,7 @@ class AlignmentElement:
         return False
 
 
-def calculate_alignment(trace, trie_node, target=None, costs={'sync': 0, 'model': 1, 'log': 2}):
+def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 3}):
     # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
     queue = [(0, id(start_node), start_node, 0, [])]
@@ -176,7 +196,6 @@ def calculate_alignment(trace, trie_node, target=None, costs={'sync': 0, 'model'
                     path + [AlignmentElement(">>", trace[trace_idx])]
                 ))
     return None
-
 
 # --- Beispielnutzung ---
 if __name__ == '__main__':
