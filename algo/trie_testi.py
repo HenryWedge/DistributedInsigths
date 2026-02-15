@@ -177,6 +177,9 @@ class Alignment:
         resulting_alignment.elements.extend(other.elements)
         return resulting_alignment
 
+    def __lt__(self, other):
+        return False
+
     def get_all_log_moves(self):
         all_log_moves = []
         for element in self.elements:
@@ -258,60 +261,3 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                     path.move_on_log_skip_model(trace[trace_idx])
                 ))
     return None
-
-
-# --- Beispielnutzung ---
-if __name__ == '__main__':
-    trie = Trie()
-    trie_builder = TrieBuilder(trie)
-    trie_builders = {
-        "n1": TrieBuilder(Trie()),
-        "n2": TrieBuilder(Trie()),
-        "n3": TrieBuilder(Trie()),
-        "n4": TrieBuilder(Trie()),
-    }
-
-    training_traces = [
-        [
-            LocatedActivity("A", "n1"),
-            LocatedActivity("B", "n1"),
-            LocatedActivity("E", "n2"),
-            LocatedActivity("F", "n2"),
-            LocatedActivity("H", "n2"),
-            LocatedActivity("G", "n4")
-        ],
-        [
-            LocatedActivity("A", "n1"),
-            LocatedActivity("C", "n1"),
-            LocatedActivity("D", "n3"),
-            LocatedActivity("G", "n4")
-        ]
-    ]
-    last_event = None
-    for trace in training_traces:
-        for located_activity in trace:
-            if last_event and last_event.location != located_activity.location:
-                trie_builders[located_activity.location].insert(last_event)
-            trie_builders[located_activity.location].insert(located_activity)
-            last_event = located_activity
-        for trie_id in trie_builders:
-            trie_builders[trie_id].reset()
-        last_event = None
-
-    network = Network()
-    node = NetworkNode(trie_builders["n1"].root_trie, network, "n1")
-    node2 = NetworkNode(trie_builders["n2"].root_trie, network, "n2")
-    node3 = NetworkNode(trie_builders["n3"].root_trie, network, "n3")
-    node4 = NetworkNode(trie_builders["n4"].root_trie, network, "n4")
-
-    observed_trace = [
-        LocatedActivity("A", "n1"),
-        LocatedActivity("B", "n1"),
-        LocatedActivity("D", "n3"),
-        LocatedActivity("F", "n2"),
-        LocatedActivity("G", "n4")
-    ]
-    for i, located_activity in enumerate(observed_trace):
-        alignment = network.get_node(located_activity.location).process_event(located_activity, i)
-        print(alignment)
-        print("---")
