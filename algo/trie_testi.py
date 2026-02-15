@@ -1,9 +1,10 @@
 import heapq
+from copy import deepcopy
 from typing import List
 
 from algo.network import Network
 
-
+SKIP = ">"
 class Trie:
     def __init__(self, label=None):
         if label:
@@ -68,6 +69,7 @@ class LocatedActivity:
     def __hash__(self):
         return hash(self.activity)
 
+
 class AlignmentResponse:
     def __init__(self, timestamp, alignment, entry_point):
         self.timestamp = timestamp
@@ -77,22 +79,26 @@ class AlignmentResponse:
     def __lt__(self, other):
         return self.timestamp < other.timestamp
 
+
 class NetworkNode:
     def __init__(self, model, network, node_id):
         self.observed_events = []
-        self.external_alignment = []
-        self.internal_alignment = []
+        self.external_alignment = Alignment()
+        self.internal_alignment = Alignment()
         self.node_id = node_id
         self.network: Network = network
         self.network.add_node(self.node_id, self)
         self.model = model
         self.i = 0
 
+    def _get_entry_points(self):
+        return [child for child in self.model.get_children() if child.label.location != self.node_id]
+
     def _trie_without_entrypoints(self):
         trie = Trie()
         all_children = self.model.get_children()
         start_activities = [child for child in all_children if child.label.location == self.node_id]
-        entry_points = [child for child in self.model.get_children() if child.label.location != self.node_id]
+        entry_points = self._get_entry_points()
         activity_after_entrypoint = [child for entry_point in entry_points for child in entry_point.get_children()]
         trie.children.extend(start_activities)
         trie.children.extend(activity_after_entrypoint)
@@ -103,18 +109,24 @@ class NetworkNode:
         internal_alignment = calculate_alignment(
             self.observed_events,
             self._trie_without_entrypoints(),
-            target_activity)
+            target_activity
+        )
         return AlignmentResponse(self.i, self.external_alignment + internal_alignment, target_activity)
+
+    def _construct_alignment_from_responses(self, alignment_responses: List[AlignmentResponse]):
+        return max(alignment_responses)
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
         self.observed_events.append(located_activity)
         external_alignments: List[AlignmentResponse] = []
-        for child in [c for c in self.model.get_children() if c.label.location != self.node_id]:
-            external_alignments.append(self.network.get_node(child.label.location).get_alignment(child))
+        for possible_entry_point in self._get_entry_points():
+            external_alignments.append(
+                self.network.get_node(possible_entry_point.label.location).get_alignment(possible_entry_point)
+            )
         entry_point = None
         if external_alignments:
-            latest_alignment = max(external_alignments)
+            latest_alignment = self._construct_alignment_from_responses(external_alignments)
             entry_point = latest_alignment.entry_point
             self.external_alignment = latest_alignment.alignment
 
@@ -127,6 +139,43 @@ class NetworkNode:
         alignment_result = self.external_alignment + self.internal_alignment
         return alignment_result
 
+class Alignment:
+    def __init__(self):
+        self.elements: List[AlignmentElement] = []
+
+    def sync_move(self, sync_move: LocatedActivity):
+        this_alignment = deepcopy(self)
+        this_alignment.elements.append(AlignmentElement(sync_move, sync_move))
+        return this_alignment
+
+    def move_on_model_skip_log(self, model_move: LocatedActivity):
+        this_alignment = deepcopy(self)
+        this_alignment.elements.append(AlignmentElement(model_move, SKIP))
+        return this_alignment
+
+    def move_on_log_skip_model(self, log_move: LocatedActivity):
+        this_alignment = deepcopy(self)
+        this_alignment.elements.append(AlignmentElement(SKIP, log_move))
+        return this_alignment
+
+    def __add__(self, other):
+        this_self = deepcopy(self)
+        resulting_alignment = Alignment()
+        resulting_alignment.elements.extend(this_self.elements)
+        resulting_alignment.elements.extend(other.elements)
+        return resulting_alignment
+
+    def get_all_log_moves(self):
+        all_log_moves = []
+        for element in self.elements:
+            all_log_moves.append(element.log)
+        return all_log_moves
+
+    def __str__(self):
+        final_string = ""
+        for element in self.elements:
+            final_string += str(element) + "\n"
+        return final_string
 
 class AlignmentElement:
     def __init__(self, model, log):
@@ -143,7 +192,7 @@ class AlignmentElement:
 def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 3}):
     # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
-    queue = [(0, id(start_node), start_node, 0, [])]
+    queue = [(0, id(start_node), start_node, 0, Alignment())]
     visited = set()
 
     while queue:
@@ -171,7 +220,8 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                 id(next_node),
                 next_node,
                 trace_idx + 1,
-                path + [AlignmentElement(trace[trace_idx], trace[trace_idx])]
+                path.sync_move(trace[trace_idx])
+                #path + [AlignmentElement(trace[trace_idx], trace[trace_idx])]
             ))
 
         # 2. Schritt im Modell (Skip Log / Move on Model)
@@ -181,7 +231,8 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                 id(next_node),
                 next_node,
                 trace_idx,
-                path + [AlignmentElement(next_node.label, ">>")]
+                path.move_on_model_skip_log(next_node.label)
+                #path + [AlignmentElement(next_node.label, ">>")]
             ))
 
         # 3. Schritt im Log (Skip Model / Move on Log)
@@ -193,9 +244,11 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                     id(current_node),
                     current_node,
                     trace_idx + 1,
-                    path + [AlignmentElement(">>", trace[trace_idx])]
+                    path.move_on_log_skip_model(trace[trace_idx])
+                    #path + [AlignmentElement(">>", trace[trace_idx])]
                 ))
     return None
+
 
 # --- Beispielnutzung ---
 if __name__ == '__main__':
@@ -250,6 +303,6 @@ if __name__ == '__main__':
     ]
     for i, located_activity in enumerate(observed_trace):
         alignment = network.get_node(located_activity.location).process_event(located_activity, i)
-        for element in alignment:
-            print(element)
+#        for element in alignment:
+        print(alignment)
         print("---")
