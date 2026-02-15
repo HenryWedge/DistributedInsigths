@@ -180,6 +180,21 @@ class Alignment:
     def __lt__(self, other):
         return False
 
+    def __eq__(self, other):
+        if len(self.elements) != len(other.elements):
+            return False
+
+        for i in range(len(self.elements)):
+            if self.elements[i] != other.elements[i]:
+                return False
+        return True
+
+    def __str__(self):
+        final_string = ""
+        for element in self.elements:
+            final_string += str(element) + "\n"
+        return final_string
+
     def get_all_log_moves(self):
         all_log_moves = []
         for element in self.elements:
@@ -203,6 +218,9 @@ class AlignmentElement:
 
     def __lt__(self, other):
         return False
+
+    def __eq__(self, other):
+        return self.model == other.model and self.log == other.log
 
 
 def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 3}):

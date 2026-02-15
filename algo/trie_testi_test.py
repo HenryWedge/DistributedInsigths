@@ -1,66 +1,67 @@
+import unittest
+
 from algo.network import Network
 from algo.trie_testi import LocatedActivity, NetworkNode, Trie, TrieBuilder
 
-
-def get_training_traces():
-    return [
-        [
-            LocatedActivity("A", "n1"),
-            LocatedActivity("B", "n1"),
-            LocatedActivity("E", "n2"),
-            LocatedActivity("F", "n2"),
-            LocatedActivity("H", "n2"),
-            LocatedActivity("G", "n4")
-        ],
-        [
-            LocatedActivity("A", "n1"),
-            LocatedActivity("C", "n1"),
-            LocatedActivity("D", "n3"),
-            LocatedActivity("G", "n4")
+class TrieTestiTest(unittest.TestCase):
+    def _get_training_traces(self, c: bool):
+        return [
+            [
+                LocatedActivity("A", "c" if c else "n1"),
+                LocatedActivity("B", "c" if c else "n1"),
+                LocatedActivity("E", "c" if c else "n2"),
+                LocatedActivity("F", "c" if c else "n2"),
+                LocatedActivity("H", "c" if c else "n2"),
+                LocatedActivity("G", "c" if c else "n4")
+            ],
+            [
+                LocatedActivity("A", "c" if c else"n1"),
+                LocatedActivity("C", "c" if c else"n1"),
+                LocatedActivity("D", "c" if c else"n3"),
+                LocatedActivity("G", "c" if c else"n4")
+            ]
         ]
-    ]
 
+    def _get_validation_trace(self, c: bool):
+        return [
+            LocatedActivity("A", "c" if c else"n1"),
+            LocatedActivity("B", "c" if c else"n1"),
+            LocatedActivity("D", "c" if c else"n3"),
+            LocatedActivity("F", "c" if c else"n2"),
+            LocatedActivity("G", "c" if c else"n4")
+        ]
 
-def get_validation_trace():
-    return [
-        LocatedActivity("A", "n1"),
-        LocatedActivity("B", "n1"),
-        LocatedActivity("D", "n3"),
-        LocatedActivity("F", "n2"),
-        LocatedActivity("G", "n4")
-    ]
-
-def run(central=False):
-    trie_builders = {}
-    last_event = None
-    for trace in get_training_traces():
-        for located_activity in trace:
-            if located_activity.location not in trie_builders:
-                trie_builders[located_activity.location] = TrieBuilder(Trie())
-            if central:
-                located_activity.location = "n1"
-                trie_builders["n1"].insert(located_activity)
-            else:
+    def _run(self, training_trace, validation_trace):
+        trie_builders = {}
+        last_event = None
+        for trace in training_trace:
+            for located_activity in trace:
+                if located_activity.location not in trie_builders:
+                    trie_builders[located_activity.location] = TrieBuilder(Trie())
                 if last_event and last_event.location != located_activity.location:
                    trie_builders[located_activity.location].insert(last_event)
                 trie_builders[located_activity.location].insert(located_activity)
-            last_event = located_activity
-        for trie_id in trie_builders:
-            trie_builders[trie_id].reset()
-        last_event = None
+                last_event = located_activity
+            for trie_id in trie_builders:
+                trie_builders[trie_id].reset()
+            last_event = None
 
-    network = Network()
-    for key in trie_builders:
-        NetworkNode(trie_builders[key].root_trie, network, key)
+        network = Network()
+        for key in trie_builders:
+            NetworkNode(trie_builders[key].root_trie, network, key)
 
-    for i, located_activity in enumerate(get_validation_trace()):
-        if central:
-            alignment = network.get_node("n1").process_event(located_activity, i)
-        else:
+        alignments = []
+        for i, located_activity in enumerate(validation_trace):
             alignment = network.get_node(located_activity.location).process_event(located_activity, i)
-        print(alignment)
+            alignments.append(alignment)
+            print(alignment)
+        return alignments
 
-if __name__ == '__main__':
-    run(False)
-    print("---")
-    run(True)
+    def test_example(self):
+        alignments_decentral = self._run(self._get_training_traces(False), self._get_validation_trace(False))
+        print("----------")
+        alignments_central = self._run(self._get_training_traces(True), self._get_validation_trace(True))
+        self.assertEqual(len(alignments_decentral), len(alignments_central))
+
+        for i in range(len(alignments_decentral)):
+            self.assertEqual(alignments_decentral[i], alignments_central[i])
