@@ -4,7 +4,7 @@ from typing import List
 
 from algo.network import Network
 
-SKIP = ">"
+SKIP = ">>"
 class Trie:
     def __init__(self, label=None):
         if label:
@@ -64,6 +64,8 @@ class LocatedActivity:
         return f"{self.activity}@{self.location}"
 
     def __eq__(self, other):
+        if not isinstance(other, LocatedActivity):
+            return False
         return self.activity == other.activity
 
     def __hash__(self):
@@ -72,8 +74,8 @@ class LocatedActivity:
 
 class AlignmentResponse:
     def __init__(self, timestamp, alignment, entry_point):
-        self.timestamp = timestamp
-        self.alignment = alignment
+        self.timestamp: int = timestamp
+        self.alignment: Alignment = alignment
         self.entry_point = entry_point
 
     def __lt__(self, other):
@@ -114,7 +116,17 @@ class NetworkNode:
         return AlignmentResponse(self.i, self.external_alignment + internal_alignment, target_activity)
 
     def _construct_alignment_from_responses(self, alignment_responses: List[AlignmentResponse]):
-        return max(alignment_responses)
+        latest_alignment_response = max(alignment_responses)
+        missing_log_moves = []
+        all_included_log_moves = latest_alignment_response.alignment.get_all_log_moves()
+        for alignment_response in alignment_responses:
+            for log_move in alignment_response.alignment.get_all_log_moves():
+                if log_move not in all_included_log_moves:
+                    missing_log_moves.append(log_move)
+        for log_move in missing_log_moves:
+            constructed_alignment = latest_alignment_response.alignment.move_on_log_skip_model(log_move)
+            latest_alignment_response.alignment = constructed_alignment
+        return latest_alignment_response
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
@@ -168,7 +180,8 @@ class Alignment:
     def get_all_log_moves(self):
         all_log_moves = []
         for element in self.elements:
-            all_log_moves.append(element.log)
+            if element.log != SKIP:
+                all_log_moves.append(element.log)
         return all_log_moves
 
     def __str__(self):
@@ -221,7 +234,6 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                 next_node,
                 trace_idx + 1,
                 path.sync_move(trace[trace_idx])
-                #path + [AlignmentElement(trace[trace_idx], trace[trace_idx])]
             ))
 
         # 2. Schritt im Modell (Skip Log / Move on Model)
@@ -232,7 +244,6 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                 next_node,
                 trace_idx,
                 path.move_on_model_skip_log(next_node.label)
-                #path + [AlignmentElement(next_node.label, ">>")]
             ))
 
         # 3. Schritt im Log (Skip Model / Move on Log)
@@ -245,7 +256,6 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
                     current_node,
                     trace_idx + 1,
                     path.move_on_log_skip_model(trace[trace_idx])
-                    #path + [AlignmentElement(">>", trace[trace_idx])]
                 ))
     return None
 
@@ -303,6 +313,5 @@ if __name__ == '__main__':
     ]
     for i, located_activity in enumerate(observed_trace):
         alignment = network.get_node(located_activity.location).process_event(located_activity, i)
-#        for element in alignment:
         print(alignment)
         print("---")
