@@ -4,7 +4,6 @@ from typing import List
 
 from algo.network import Network
 
-SKIP = ">>"
 class Trie:
     def __init__(self, label=None):
         if label:
@@ -67,6 +66,9 @@ class LocatedActivity:
         if not isinstance(other, LocatedActivity):
             return False
         return self.activity == other.activity
+
+    def equals_activity(self, other):
+        return self.activity == self.activity
 
     def __hash__(self):
         return hash(self.activity)
@@ -151,6 +153,9 @@ class NetworkNode:
         alignment_result = self.external_alignment + self.internal_alignment
         return alignment_result
 
+
+SKIP = LocatedActivity(">>","skip")
+
 class Alignment:
     def __init__(self):
         self.elements: List[AlignmentElement] = []
@@ -208,6 +213,7 @@ class Alignment:
             final_string += str(element) + "\n"
         return final_string
 
+
 class AlignmentElement:
     def __init__(self, model, log):
         self.model = model
@@ -219,9 +225,11 @@ class AlignmentElement:
     def __lt__(self, other):
         return False
 
+    def __hash__(self):
+        return 0
+
     def __eq__(self, other):
         return self.model == other.model and self.log == other.log
-
 
 def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 3}):
     # Priority Queue: (cost, trie_node, trace_index, path)
@@ -270,7 +278,10 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
         # 3. Schritt im Log (Skip Model / Move on Log)
         if trace_idx < len(trace):
             # If we want to reach a specific target it should not be allowed to skip it to move on in the log
-            if not (target and trace_idx == len(trace) - 1):
+            if not (
+                    #target and
+                    trace_idx == len(trace) - 1
+            ):
                 heapq.heappush(queue, (
                     cost + costs['log'],
                     id(current_node),

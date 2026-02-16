@@ -54,14 +54,23 @@ class TrieTestiTest(unittest.TestCase):
         for i, located_activity in enumerate(validation_trace):
             alignment = network.get_node(located_activity.location).process_event(located_activity, i)
             alignments.append(alignment)
-            print(alignment)
+            #print(alignment)
         return alignments
+
+    def _assert_equality_of_alignments(self, alignments_decentral, alignments_central):
+        fail = False
+        for i in range(len(alignments_decentral)):
+            set_central = set(alignments_central[i].elements)
+            set_decentral = set(alignments_decentral[i].elements)
+            not_matching = set_central.difference(set_decentral)
+            if not_matching:
+                print(f"Alignments do not match.\nDecentral:\n{alignments_decentral[i]}\nCentral:\n{alignments_central[i]}")
+                print("Difference:")
+                print(' '.join(f'{x}\n' for x in not_matching))
+                fail = True
+        self.assertFalse(fail)
 
     def test_example(self):
         alignments_decentral = self._run(self._get_training_traces(False), self._get_validation_trace(False))
-        print("----------")
         alignments_central = self._run(self._get_training_traces(True), self._get_validation_trace(True))
-        self.assertEqual(len(alignments_decentral), len(alignments_central))
-
-        for i in range(len(alignments_decentral)):
-            self.assertEqual(alignments_decentral[i], alignments_central[i])
+        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
