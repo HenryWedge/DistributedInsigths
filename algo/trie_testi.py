@@ -4,6 +4,7 @@ from typing import List
 
 from algo.network import Network
 
+
 class Trie:
     def __init__(self, label=None):
         if label:
@@ -154,7 +155,8 @@ class NetworkNode:
         return alignment_result
 
 
-SKIP = LocatedActivity(">>","skip")
+SKIP = LocatedActivity(">>", "skip")
+
 
 class Alignment:
     def __init__(self):
@@ -231,11 +233,13 @@ class AlignmentElement:
     def __eq__(self, other):
         return self.model == other.model and self.log == other.log
 
+
 def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 3}):
     # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
     queue = [(0, id(start_node), start_node, 0, Alignment())]
     visited = set()
+    d = target
 
     while queue:
         cost, _, current_node, trace_idx, path = heapq.heappop(queue)
@@ -244,7 +248,8 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
         if target:
             # If we have a target we force to reach it
             if not current_node.is_root() and current_node.label.activity == target.activity:
-                return path
+                if target and trace_idx == len(trace):
+                    return path
         else:
             if trace_idx == len(trace):
                 return path
@@ -277,11 +282,8 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
 
         # 3. Schritt im Log (Skip Model / Move on Log)
         if trace_idx < len(trace):
-            # If we want to reach a specific target it should not be allowed to skip it to move on in the log
-            if not (
-                    #target and
-                    trace_idx == len(trace) - 1
-            ):
+            # In the central case we want to enforce that the alignment goes to the end of the trace
+            if target or trace_idx != len(trace) - 1:
                 heapq.heappush(queue, (
                     cost + costs['log'],
                     id(current_node),
