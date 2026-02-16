@@ -54,7 +54,7 @@ class TrieTestiTest(unittest.TestCase):
         for i, located_activity in enumerate(validation_trace):
             alignment = network.get_node(located_activity.location).process_event(located_activity, i)
             alignments.append(alignment)
-            #print(alignment)
+            print(alignment)
         return alignments
 
     def _assert_equality_of_alignments(self, alignments_decentral, alignments_central):
@@ -66,7 +66,7 @@ class TrieTestiTest(unittest.TestCase):
             if not_matching:
                 print(f"Alignments do not match.\nDecentral:\n{alignments_decentral[i]}\nCentral:\n{alignments_central[i]}")
                 print("Difference:")
-                print(' '.join(f'{x}\n' for x in not_matching))
+                print(''.join(f'{x}\n' for x in not_matching))
                 fail = True
         self.assertFalse(fail)
 

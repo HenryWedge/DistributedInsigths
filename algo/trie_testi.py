@@ -1,6 +1,6 @@
 import heapq
 from copy import deepcopy
-from typing import List
+from typing import List, Set
 
 from algo.network import Network
 
@@ -118,14 +118,17 @@ class NetworkNode:
         )
         return AlignmentResponse(self.i, self.external_alignment + internal_alignment, target_activity)
 
-    def _construct_alignment_from_responses(self, alignment_responses: List[AlignmentResponse]):
+    def get_observed_events(self):
+        return self.observed_events
+
+    def _construct_alignment_from_responses(self, alignment_responses: List[AlignmentResponse], other_log_moves):
         latest_alignment_response = max(alignment_responses)
         missing_log_moves = []
         all_included_log_moves = latest_alignment_response.alignment.get_all_log_moves()
-        for alignment_response in alignment_responses:
-            for log_move in alignment_response.alignment.get_all_log_moves():
-                if log_move not in all_included_log_moves:
-                    missing_log_moves.append(log_move)
+
+        for log_move in other_log_moves:
+           if log_move not in all_included_log_moves:
+               missing_log_moves.append(log_move)
         for log_move in missing_log_moves:
             constructed_alignment = latest_alignment_response.alignment.move_on_log_skip_model(log_move)
             latest_alignment_response.alignment = constructed_alignment
@@ -139,16 +142,21 @@ class NetworkNode:
             external_alignments.append(
                 self.network.get_node(possible_entry_point.label.location).get_alignment(possible_entry_point)
             )
+
+        additional_log_moves: List[LocatedActivity] = []
+        for node in self.network.get_all_nodes(self.node_id):
+            additional_log_moves.extend(node.get_observed_events())
+
         entry_point = None
         if external_alignments:
-            latest_alignment = self._construct_alignment_from_responses(external_alignments)
+            latest_alignment = self._construct_alignment_from_responses(external_alignments, additional_log_moves)
             entry_point = latest_alignment.entry_point
             self.external_alignment = latest_alignment.alignment
 
+        model = self.model
         if entry_point:
             model = self.model.get_child(entry_point)
-        else:
-            model = self.model
+
         self.internal_alignment = calculate_alignment(self.observed_events, model)
 
         alignment_result = self.external_alignment + self.internal_alignment
@@ -179,6 +187,8 @@ class Alignment:
 
     def __add__(self, other):
         this_self = deepcopy(self)
+        if not other:
+            return this_self
         resulting_alignment = Alignment()
         resulting_alignment.elements.extend(this_self.elements)
         resulting_alignment.elements.extend(other.elements)
@@ -234,12 +244,11 @@ class AlignmentElement:
         return self.model == other.model and self.log == other.log
 
 
-def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 3}):
+def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 1}):
     # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
     queue = [(0, id(start_node), start_node, 0, Alignment())]
     visited = set()
-    d = target
 
     while queue:
         cost, _, current_node, trace_idx, path = heapq.heappop(queue)
