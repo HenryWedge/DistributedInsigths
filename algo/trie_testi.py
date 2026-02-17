@@ -82,6 +82,8 @@ class AlignmentResponse:
         self.entry_point = entry_point
 
     def __lt__(self, other):
+        if self.timestamp == other.timestamp:
+            return self.alignment.get_cost() > other.alignment.get_cost()
         return self.timestamp < other.timestamp
 
 
@@ -94,7 +96,9 @@ class NetworkNode:
         self.network: Network = network
         self.network.add_node(self.node_id, self)
         self.model = model
-        self.i = 0
+        self.tp = []
+        self.old_tp = []
+        self.i = -1
 
     def _get_entry_points(self):
         return [child for child in self.model.get_children() if child.label.location != self.node_id]
@@ -112,7 +116,7 @@ class NetworkNode:
     def get_alignment(self, target):
         target_activity = LocatedActivity(target.label.activity, self.node_id)
         internal_alignment = calculate_alignment(
-            self.observed_events,
+            self.old_tp,
             self._trie_without_entrypoints(),
             target_activity
         )
@@ -137,11 +141,13 @@ class NetworkNode:
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
         self.observed_events.append(located_activity)
+        self.tp.append(located_activity)
         external_alignments: List[AlignmentResponse] = []
+
         for possible_entry_point in self._get_entry_points():
-            external_alignments.append(
-                self.network.get_node(possible_entry_point.label.location).get_alignment(possible_entry_point)
-            )
+            external_alignment = self.network.get_node(possible_entry_point.label.location).get_alignment(possible_entry_point)
+            if external_alignment.timestamp >= 0:
+                external_alignments.append(external_alignment)
 
         additional_log_moves: List[LocatedActivity] = []
         for node in self.network.get_all_nodes(self.node_id):
@@ -157,14 +163,18 @@ class NetworkNode:
         if entry_point:
             model = self.model.get_child(entry_point)
 
-        self.internal_alignment = calculate_alignment(self.observed_events, model)
-
+        self.internal_alignment = calculate_alignment(self.tp, model)
         alignment_result = self.external_alignment + self.internal_alignment
+
+        self.old_tp = deepcopy(self.tp)
+        self.tp.remove(located_activity)
         return alignment_result
 
 
 SKIP = LocatedActivity(">>", "skip")
-
+SYNC_COST = 0
+LOG_COST = 1
+MODEL_COST = 1
 
 class Alignment:
     def __init__(self):
@@ -185,6 +195,15 @@ class Alignment:
         this_alignment.elements.append(AlignmentElement(SKIP, log_move))
         return this_alignment
 
+    def get_cost(self):
+        cost = 0
+        for element in self.elements:
+            if element.log == SKIP:
+                cost += MODEL_COST
+            elif element.model == SKIP:
+                cost += LOG_COST
+        return cost
+
     def __add__(self, other):
         this_self = deepcopy(self)
         if not other:
@@ -195,7 +214,7 @@ class Alignment:
         return resulting_alignment
 
     def __lt__(self, other):
-        return False
+        return self.get_cost() < other.get_cost()
 
     def __eq__(self, other):
         if len(self.elements) != len(other.elements):
@@ -244,7 +263,7 @@ class AlignmentElement:
         return self.model == other.model and self.log == other.log
 
 
-def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, 'model': 1, 'log': 1}):
+def calculate_alignment(trace, trie_node: Trie, target=None):
     # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
     queue = [(0, id(start_node), start_node, 0, Alignment())]
@@ -272,7 +291,7 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
         if trace_idx < len(trace) and current_node.has_child(trace[trace_idx]):
             next_node = current_node.get_child(trace[trace_idx])
             heapq.heappush(queue, (
-                cost + costs['sync'],
+                cost + SYNC_COST,
                 id(next_node),
                 next_node,
                 trace_idx + 1,
@@ -282,7 +301,7 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
         # 2. Schritt im Modell (Skip Log / Move on Model)
         for next_node in current_node.get_children():
             heapq.heappush(queue, (
-                cost + costs['model'],
+                cost + MODEL_COST,
                 id(next_node),
                 next_node,
                 trace_idx,
@@ -294,7 +313,7 @@ def calculate_alignment(trace, trie_node: Trie, target=None, costs={'sync': 0, '
             # In the central case we want to enforce that the alignment goes to the end of the trace
             if target or trace_idx != len(trace) - 1:
                 heapq.heappush(queue, (
-                    cost + costs['log'],
+                    cost + LOG_COST,
                     id(current_node),
                     current_node,
                     trace_idx + 1,
