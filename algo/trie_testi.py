@@ -81,10 +81,12 @@ class AlignmentResponse:
         self.alignment: Alignment = alignment
         self.entry_point = entry_point
 
+
     def __lt__(self, other):
-        if self.timestamp == other.timestamp:
-            return self.alignment.get_cost() > other.alignment.get_cost()
-        return self.timestamp < other.timestamp
+        return self.alignment > other.alignment
+
+    def __le__(self, other):
+        return self.alignment >= other.alignment
 
 
 class NetworkNode:
@@ -134,16 +136,21 @@ class NetworkNode:
     def get_observed_events(self):
         return list(self.observed_events.keys())
 
-    def _construct_alignment_from_responses(self, latest_alignment_response: AlignmentResponse, other_log_moves):
-        missing_log_moves = []
-        all_included_log_moves = latest_alignment_response.alignment.get_all_log_moves()
+    def _construct_alignment_from_responses(self, latest_alignment_responses: List[AlignmentResponse], other_log_moves):
+        latest_alignment_response: AlignmentResponse = latest_alignment_responses[0]
 
-        for log_move in other_log_moves:
-           if log_move not in all_included_log_moves:
-               missing_log_moves.append(log_move)
-        for log_move in missing_log_moves:
-            constructed_alignment = latest_alignment_response.alignment.move_on_log_skip_model(log_move)
-            latest_alignment_response.alignment = constructed_alignment
+        for response in latest_alignment_responses:
+            missing_log_moves = []
+            all_included_log_moves = response.alignment.get_all_log_moves()
+            for log_move in other_log_moves:
+               if log_move not in all_included_log_moves:
+                   missing_log_moves.append(log_move)
+            for log_move in missing_log_moves:
+                constructed_alignment = response.alignment.move_on_log_skip_model(log_move)
+                response.alignment = constructed_alignment
+            if latest_alignment_response < response:
+                latest_alignment_response = response
+
         return latest_alignment_response
 
     def process_event(self, located_activity: LocatedActivity, i: int):
@@ -161,16 +168,13 @@ class NetworkNode:
         for node in self.network.get_all_nodes(self.node_id):
             additional_log_moves.extend(node.get_observed_events())
 
-        entry_point = None
-        external_alignment = None if not external_alignments else max(external_alignments)
+        external_alignment = None if not external_alignments else max(external_alignments, key=lambda x: x.timestamp)
         is_previous_state_external = external_alignment and external_alignment.timestamp > self.last_i
 
         if is_previous_state_external and external_alignment:
-            latest_alignment = self._construct_alignment_from_responses(external_alignment, additional_log_moves)
+            latest_alignment = self._construct_alignment_from_responses(external_alignments, additional_log_moves)
             entry_point = latest_alignment.entry_point
             self.external_alignment = latest_alignment.alignment
-
-        if entry_point:
             self.current_model = self.model.get_child(entry_point)
 
         if is_previous_state_external:
@@ -225,7 +229,15 @@ class Alignment:
         return resulting_alignment
 
     def __lt__(self, other):
+        if self.get_cost() == other.get_cost():
+            return len(self.elements) < len(other.elements)
         return self.get_cost() < other.get_cost()
+
+    def __le__(self, other):
+        if self.get_cost() == other.get_cost():
+            return len(self.elements) <= len(other.elements)
+        return self.get_cost() <= other.get_cost()
+
 
     def __eq__(self, other):
         if len(self.elements) != len(other.elements):
@@ -240,7 +252,7 @@ class Alignment:
         final_string = ""
         for element in self.elements:
             final_string += str(element) + "\n"
-        return final_string
+        return f"[Cost:{self.get_cost()}]{final_string}"
 
     def get_all_log_moves(self):
         all_log_moves = []
@@ -277,11 +289,11 @@ class AlignmentElement:
 def calculate_alignment(trace, trie_node: Trie, target=None):
     # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
-    queue = [(0, id(start_node), start_node, 0, Alignment())]
+    queue = [(Alignment(), id(start_node), start_node, 0)]
     visited = set()
 
     while queue:
-        cost, _, current_node, trace_idx, path = heapq.heappop(queue)
+        path, _, current_node, trace_idx = heapq.heappop(queue)
 
         # Zielzustand: Ende der Trace UND Ende eines Pfades im Trie
         if target:
@@ -302,21 +314,19 @@ def calculate_alignment(trace, trie_node: Trie, target=None):
         if trace_idx < len(trace) and current_node.has_child(trace[trace_idx]):
             next_node = current_node.get_child(trace[trace_idx])
             heapq.heappush(queue, (
-                cost + SYNC_COST,
+                path.sync_move(trace[trace_idx]),
                 id(next_node),
                 next_node,
                 trace_idx + 1,
-                path.sync_move(trace[trace_idx])
             ))
 
         # 2. Schritt im Modell (Skip Log / Move on Model)
         for next_node in current_node.get_children():
             heapq.heappush(queue, (
-                cost + MODEL_COST,
+                path.move_on_model_skip_log(next_node.label),
                 id(next_node),
                 next_node,
-                trace_idx,
-                path.move_on_model_skip_log(next_node.label)
+                trace_idx
             ))
 
         # 3. Schritt im Log (Skip Model / Move on Log)
@@ -324,10 +334,9 @@ def calculate_alignment(trace, trie_node: Trie, target=None):
             # In the central case we want to enforce that the alignment goes to the end of the trace
             if target or trace_idx != len(trace) - 1:
                 heapq.heappush(queue, (
-                    cost + LOG_COST,
+                    path.move_on_log_skip_model(trace[trace_idx]),
                     id(current_node),
                     current_node,
-                    trace_idx + 1,
-                    path.move_on_log_skip_model(trace[trace_idx])
+                    trace_idx + 1
                 ))
     return None
