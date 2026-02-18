@@ -138,7 +138,7 @@ class NetworkNode:
             additional_log_moves.extend(node.get_observed_events())
 
         for response in latest_alignment_responses:
-            constructed_alignment = deepcopy(response.alignment)
+            constructed_alignment = response.alignment
             missing_log_moves = []
             all_included_log_moves = response.alignment.get_all_log_moves()
             for log_move in additional_log_moves:
@@ -147,17 +147,20 @@ class NetworkNode:
             for log_move in missing_log_moves:
                 constructed_alignment = constructed_alignment.move_on_log_skip_model(log_move)
 
-            internal_alignemnt = calculate_alignment(self.tp, self.model.get_child(response.entry_point))
-            constructed_alignment = constructed_alignment + internal_alignemnt
-            response.alignment = deepcopy(constructed_alignment)
+            internal_alignment = calculate_alignment(self.tp, self.model.get_child(response.entry_point))
+            complete_alignment = constructed_alignment + internal_alignment
 
             # We follow this path only when it is reachable
             # We must implement that we somehow assign a cost to this case so we take the shortest skips within
-            if internal_alignemnt:
-                if not latest_alignment_response or latest_alignment_response < response:
+            if internal_alignment:
+                if not latest_alignment_response or latest_alignment_response.alignment > complete_alignment:
+                    response.alignment = complete_alignment
                     latest_alignment_response = response
+                    ri = internal_alignment
+                    re = constructed_alignment
+                    ep = response.entry_point
 
-        return latest_alignment_response
+        return ep, ri, re
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
@@ -174,13 +177,13 @@ class NetworkNode:
         is_previous_state_external = external_alignment and external_alignment.timestamp > self.last_i
 
         if is_previous_state_external:
-            latest_alignment = self._construct_alignment_from_responses(external_alignments)
-            entry_point = latest_alignment.entry_point
-            self.external_alignment = latest_alignment.alignment
+            entry_point, ri, re = self._construct_alignment_from_responses(external_alignments)
+            self.external_alignment = re
+            self.internal_alignment = ri
             self.current_model = self.model.get_child(entry_point)
             self.tp = [located_activity]
-
-        self.internal_alignment = calculate_alignment(self.tp, self.current_model)
+        else:
+            self.internal_alignment = calculate_alignment(self.tp, self.current_model)
         alignment_result = self.external_alignment + self.internal_alignment
 
         self.last_i = i
