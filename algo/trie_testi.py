@@ -132,22 +132,30 @@ class NetworkNode:
         return list(self.observed_events.keys())
 
     def _construct_alignment_from_responses(self, latest_alignment_responses: List[AlignmentResponse]):
-        latest_alignment_response: AlignmentResponse = latest_alignment_responses[0]
+        latest_alignment_response: AlignmentResponse = None
         additional_log_moves: List[LocatedActivity] = []
         for node in self.network.get_all_nodes(self.node_id):
             additional_log_moves.extend(node.get_observed_events())
 
         for response in latest_alignment_responses:
+            constructed_alignment = deepcopy(response.alignment)
             missing_log_moves = []
             all_included_log_moves = response.alignment.get_all_log_moves()
             for log_move in additional_log_moves:
                if log_move not in all_included_log_moves:
                    missing_log_moves.append(log_move)
             for log_move in missing_log_moves:
-                constructed_alignment = response.alignment.move_on_log_skip_model(log_move)
-                response.alignment = constructed_alignment
-            if latest_alignment_response < response:
-                latest_alignment_response = response
+                constructed_alignment = constructed_alignment.move_on_log_skip_model(log_move)
+
+            internal_alignemnt = calculate_alignment(self.tp, self.model.get_child(response.entry_point))
+            constructed_alignment = constructed_alignment + internal_alignemnt
+            response.alignment = deepcopy(constructed_alignment)
+
+            # We follow this path only when it is reachable
+            # We must implement that we somehow assign a cost to this case so we take the shortest skips within
+            if internal_alignemnt:
+                if not latest_alignment_response or latest_alignment_response < response:
+                    latest_alignment_response = response
 
         return latest_alignment_response
 
@@ -238,7 +246,7 @@ class Alignment:
         final_string = ""
         for element in self.elements:
             final_string += str(element) + "\n"
-        return f"[Cost:{self.get_cost()}]{final_string}"
+        return f"[Cost:{self.get_cost()}]\n{final_string}"
 
     def get_all_log_moves(self):
         all_log_moves = []
