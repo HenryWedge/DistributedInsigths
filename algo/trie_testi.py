@@ -81,13 +81,8 @@ class AlignmentResponse:
         self.alignment: Alignment = alignment
         self.entry_point = entry_point
 
-
     def __lt__(self, other):
         return self.alignment > other.alignment
-
-    def __le__(self, other):
-        return self.alignment >= other.alignment
-
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
@@ -136,13 +131,16 @@ class NetworkNode:
     def get_observed_events(self):
         return list(self.observed_events.keys())
 
-    def _construct_alignment_from_responses(self, latest_alignment_responses: List[AlignmentResponse], other_log_moves):
+    def _construct_alignment_from_responses(self, latest_alignment_responses: List[AlignmentResponse]):
         latest_alignment_response: AlignmentResponse = latest_alignment_responses[0]
+        additional_log_moves: List[LocatedActivity] = []
+        for node in self.network.get_all_nodes(self.node_id):
+            additional_log_moves.extend(node.get_observed_events())
 
         for response in latest_alignment_responses:
             missing_log_moves = []
             all_included_log_moves = response.alignment.get_all_log_moves()
-            for log_move in other_log_moves:
+            for log_move in additional_log_moves:
                if log_move not in all_included_log_moves:
                    missing_log_moves.append(log_move)
             for log_move in missing_log_moves:
@@ -164,20 +162,14 @@ class NetworkNode:
             if external_alignment.timestamp >= 0:
                 external_alignments.append(external_alignment)
 
-        additional_log_moves: List[LocatedActivity] = []
-        for node in self.network.get_all_nodes(self.node_id):
-            additional_log_moves.extend(node.get_observed_events())
-
         external_alignment = None if not external_alignments else max(external_alignments, key=lambda x: x.timestamp)
         is_previous_state_external = external_alignment and external_alignment.timestamp > self.last_i
 
-        if is_previous_state_external and external_alignment:
-            latest_alignment = self._construct_alignment_from_responses(external_alignments, additional_log_moves)
+        if is_previous_state_external:
+            latest_alignment = self._construct_alignment_from_responses(external_alignments)
             entry_point = latest_alignment.entry_point
             self.external_alignment = latest_alignment.alignment
             self.current_model = self.model.get_child(entry_point)
-
-        if is_previous_state_external:
             self.tp = [located_activity]
 
         self.internal_alignment = calculate_alignment(self.tp, self.current_model)
@@ -233,12 +225,6 @@ class Alignment:
             return len(self.elements) < len(other.elements)
         return self.get_cost() < other.get_cost()
 
-    def __le__(self, other):
-        if self.get_cost() == other.get_cost():
-            return len(self.elements) <= len(other.elements)
-        return self.get_cost() <= other.get_cost()
-
-
     def __eq__(self, other):
         if len(self.elements) != len(other.elements):
             return False
@@ -260,13 +246,6 @@ class Alignment:
             if element.log != SKIP:
                 all_log_moves.append(element.log)
         return all_log_moves
-
-    def __str__(self):
-        final_string = ""
-        for element in self.elements:
-            final_string += str(element) + "\n"
-        return final_string
-
 
 class AlignmentElement:
     def __init__(self, model, log):
