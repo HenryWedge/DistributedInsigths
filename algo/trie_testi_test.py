@@ -57,20 +57,30 @@ class TrieTestiTest(unittest.TestCase):
         return [
             [
                 LocatedActivity("A", "c" if c else "n1"),
+                LocatedActivity("A2", "c" if c else "n1"),
                 LocatedActivity("B", "c" if c else "n2"),
-                LocatedActivity("C", "c" if c else "n1"),
-                LocatedActivity("D", "c" if c else "n2")
+                LocatedActivity("C", "c" if c else "n2"),
+                LocatedActivity("D", "c" if c else "n1"),
+                LocatedActivity("D2", "c" if c else "n1"),
+                LocatedActivity("E", "c" if c else "n2"),
+                LocatedActivity("E2", "c" if c else "n2"),
+                LocatedActivity("E3", "c" if c else "n1"),
+                LocatedActivity("E4", "c" if c else "n1")
             ]
         ]
 
     def _get_validation_traces_alternating(self, c: bool):
         return [
-            LocatedActivity("A", "c" if c else "n1"),
-            LocatedActivity("B", "c" if c else "n2"),
-            LocatedActivity("C", "c" if c else "n1"),
-            LocatedActivity("D", "c" if c else "n2")
-        ]
-
+                LocatedActivity("A", "c" if c else "n1"),
+                LocatedActivity("B", "c" if c else "n2"),
+                LocatedActivity("C", "c" if c else "n2"),
+                LocatedActivity("D", "c" if c else "n1"),
+                LocatedActivity("D2", "c" if c else "n1"),
+                LocatedActivity("E", "c" if c else "n2"),
+                #LocatedActivity("E2", "c" if c else "n2"),
+                LocatedActivity("E3", "c" if c else "n1"),
+                LocatedActivity("E4", "c" if c else "n1")
+            ]
     def _run(self, training_trace, validation_trace):
         trie_builders = {}
         last_event = None
@@ -120,9 +130,9 @@ class TrieTestiTest(unittest.TestCase):
     def test_alternating(self):
         alignments_decentral = self._run(self._get_training_traces_alternating(False),
                                          self._get_validation_traces_alternating(False))
-        #alignments_central = self._run(self._get_training_traces_alternating(True),
-        #                               self._get_validation_traces_alternating(True))
-        #self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+        alignments_central = self._run(self._get_training_traces_alternating(True),
+                                       self._get_validation_traces_alternating(True))
+        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     # def test_context_sensitive(self):
     #    alignments_decentral = self._run(self._get_training_traces_context_sensitive(False),

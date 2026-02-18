@@ -89,15 +89,16 @@ class AlignmentResponse:
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
-        self.observed_events = []
+        self.observed_events = {}
         self.external_alignment = Alignment()
         self.internal_alignment = Alignment()
         self.node_id = node_id
         self.network: Network = network
         self.network.add_node(self.node_id, self)
         self.model = model
+        self.current_model = model
         self.tp = []
-        self.old_tp = []
+        self.last_i = -1
         self.i = -1
 
     def _get_entry_points(self):
@@ -113,20 +114,27 @@ class NetworkNode:
         trie.children.extend(activity_after_entrypoint)
         return trie
 
+    def _get_last_processed_event(self, alignment):
+        this_alignment = deepcopy(alignment.elements)
+        this_alignment.reverse()
+        for element in this_alignment:
+            if element.model != SKIP and element.model in self.observed_events:
+                return self.observed_events[element.model]
+        return -1
+
     def get_alignment(self, target):
         target_activity = LocatedActivity(target.label.activity, self.node_id)
         internal_alignment = calculate_alignment(
-            self.old_tp,
+            self.tp,
             self._trie_without_entrypoints(),
             target_activity
         )
-        return AlignmentResponse(self.i, self.external_alignment + internal_alignment, target_activity)
+        return AlignmentResponse(self._get_last_processed_event(internal_alignment), self.external_alignment + internal_alignment, target_activity)
 
     def get_observed_events(self):
-        return self.observed_events
+        return list(self.observed_events.keys())
 
-    def _construct_alignment_from_responses(self, alignment_responses: List[AlignmentResponse], other_log_moves):
-        latest_alignment_response = max(alignment_responses)
+    def _construct_alignment_from_responses(self, latest_alignment_response: AlignmentResponse, other_log_moves):
         missing_log_moves = []
         all_included_log_moves = latest_alignment_response.alignment.get_all_log_moves()
 
@@ -140,7 +148,7 @@ class NetworkNode:
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
-        self.observed_events.append(located_activity)
+        self.observed_events[located_activity] = self.i
         self.tp.append(located_activity)
         external_alignments: List[AlignmentResponse] = []
 
@@ -154,22 +162,25 @@ class NetworkNode:
             additional_log_moves.extend(node.get_observed_events())
 
         entry_point = None
-        if external_alignments:
-            latest_alignment = self._construct_alignment_from_responses(external_alignments, additional_log_moves)
+        external_alignment = None if not external_alignments else max(external_alignments)
+        is_previous_state_external = external_alignment and external_alignment.timestamp > self.last_i
+
+        if is_previous_state_external and external_alignment:
+            latest_alignment = self._construct_alignment_from_responses(external_alignment, additional_log_moves)
             entry_point = latest_alignment.entry_point
             self.external_alignment = latest_alignment.alignment
 
-        model = self.model
         if entry_point:
-            model = self.model.get_child(entry_point)
+            self.current_model = self.model.get_child(entry_point)
 
-        self.internal_alignment = calculate_alignment(self.tp, model)
+        if is_previous_state_external:
+            self.tp = [located_activity]
+
+        self.internal_alignment = calculate_alignment(self.tp, self.current_model)
         alignment_result = self.external_alignment + self.internal_alignment
 
-        self.old_tp = deepcopy(self.tp)
-        self.tp.remove(located_activity)
+        self.last_i = i
         return alignment_result
-
 
 SKIP = LocatedActivity(">>", "skip")
 SYNC_COST = 0
