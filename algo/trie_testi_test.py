@@ -140,7 +140,7 @@ class TrieTestiTest(unittest.TestCase):
     def _assert_equality_of_alignments(self, alignments_decentral, alignments_central):
         fail = False
         for i in range(len(alignments_decentral)):
-            #self.assertEqual(len(alignments_central[i].elements), len(alignments_decentral[i].elements))
+            self.assertEqual(len(alignments_central[i].elements), len(alignments_decentral[i].elements))
             set_central = set(alignments_central[i].elements)
             set_decentral = set(alignments_decentral[i].elements)
             not_matching = set_central.difference(set_decentral)
