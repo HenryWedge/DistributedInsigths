@@ -1,10 +1,106 @@
 import heapq
 from copy import deepcopy
-from typing import List, Any
+from typing import List
 
-from algo.alignment import Alignment
 from algo.network import Network
 
+class LocatedActivity:
+    def __init__(self, activity, location):
+        self.activity = activity
+        self.location = location
+
+    def __str__(self):
+        return f"{self.activity}@{self.location}"
+
+    def __eq__(self, other):
+        if not isinstance(other, LocatedActivity):
+            return False
+        return self.activity == other.activity
+
+    def equals_activity(self, other):
+        return self.activity == self.activity
+
+    def __hash__(self):
+        return hash(self.activity)
+
+
+class Alignment:
+    def __init__(self):
+        self.elements: List[AlignmentElement] = []
+
+    def sync_move(self, sync_move: LocatedActivity):
+        this_alignment = deepcopy(self)
+        this_alignment.elements.append(AlignmentElement(sync_move, sync_move))
+        return this_alignment
+
+    def move_on_model_skip_log(self, model_move: LocatedActivity):
+        this_alignment = deepcopy(self)
+        this_alignment.elements.append(AlignmentElement(model_move, SKIP))
+        return this_alignment
+
+    def move_on_log_skip_model(self, log_move: LocatedActivity):
+        this_alignment = deepcopy(self)
+        this_alignment.elements.append(AlignmentElement(SKIP, log_move))
+        return this_alignment
+
+    def get_cost(self):
+        cost = 0
+        for element in self.elements:
+            if element.log == SKIP:
+                cost += MODEL_COST
+            elif element.model == SKIP:
+                cost += LOG_COST
+        return cost
+
+    def is_empty(self):
+        return not bool(self.elements)
+
+    def __add__(self, other):
+        this_self = deepcopy(self)
+        if not other:
+            return this_self
+        resulting_alignment = Alignment()
+        resulting_alignment.elements.extend(this_self.elements)
+        resulting_alignment.elements.extend(other.elements)
+        return resulting_alignment
+
+    def __lt__(self, other):
+        if self.get_cost() == other.get_cost():
+            return len(self.elements) < len(other.elements)
+        return self.get_cost() < other.get_cost()
+
+    def __eq__(self, other):
+        if len(self.elements) != len(other.elements):
+            return False
+
+        for i in range(len(self.elements)):
+            if self.elements[i] != other.elements[i]:
+                return False
+        return True
+
+    def __str__(self):
+        final_string = ""
+        for element in self.elements:
+            final_string += str(element) + "\n"
+        return f"[Cost:{self.get_cost()}]\n{final_string}"
+
+    def get_all_log_moves(self):
+        all_log_moves = []
+        for element in self.elements:
+            if element.log != SKIP:
+                all_log_moves.append(element.log)
+        return all_log_moves
+
+    def append_missing_log_moves(self, log_moves):
+        missing_log_moves = []
+        for log_move in log_moves:
+            if log_move not in self.get_all_log_moves():
+                missing_log_moves.append(log_move)
+        if not missing_log_moves:
+            return deepcopy(self)
+        for log_move in missing_log_moves:
+            alignment = self.move_on_log_skip_model(log_move)
+        return deepcopy(alignment)
 
 class Trie:
     def __init__(self, label=None):
@@ -55,27 +151,6 @@ class TrieBuilder:
     def reset(self):
         self.active_trie = self.root_trie
 
-
-class LocatedActivity:
-    def __init__(self, activity, location):
-        self.activity = activity
-        self.location = location
-
-    def __str__(self):
-        return f"{self.activity}@{self.location}"
-
-    def __eq__(self, other):
-        if not isinstance(other, LocatedActivity):
-            return False
-        return self.activity == other.activity
-
-    def equals_activity(self, other):
-        return self.activity == self.activity
-
-    def __hash__(self):
-        return hash(self.activity)
-
-
 class AlignmentResponse:
     def __init__(self, timestamp, alignment, entry_point):
         self.timestamp: int = timestamp
@@ -114,6 +189,8 @@ class NetworkNode:
         return trie
 
     def _get_last_processed_event(self, alignment):
+        if not alignment:
+            return -1
         this_alignment = deepcopy(alignment.elements)
         this_alignment.reverse()
         for element in this_alignment:
@@ -122,14 +199,30 @@ class NetworkNode:
         return -1
 
     def get_alignment(self, target):
+        timestamp = None
+        if not self.activities_to_align:
+            all_alignments = []
+            for entrypoint in self._get_entry_points():
+                for node in self.network.get_all_nodes(self.node_id):
+                    alignment: Alignment = node.get_alignment(entrypoint).alignment
+                    if not alignment.is_empty():
+                        all_alignments.append(node.get_alignment(entrypoint))
+            latest_alignment_repsonse = max(all_alignments)
+            self.external_alignment = latest_alignment_repsonse.alignment
+            timestamp = latest_alignment_repsonse.timestamp
+
         target_activity = LocatedActivity(target.label.activity, self.node_id)
         internal_alignment = calculate_alignment(
             self.activities_to_align,
             self._trie_without_entrypoints(),
             target_activity
         )
-        return AlignmentResponse(self._get_last_processed_event(internal_alignment),
-                                 self.external_alignment + internal_alignment, target_activity)
+        return AlignmentResponse(
+            # IMPORTANT! timestamp is not None otherwise it would evaluate to True on timestamp 0
+            timestamp if timestamp is not None else self._get_last_processed_event(internal_alignment),
+            self.external_alignment + internal_alignment,
+            target_activity
+        )
 
     def get_observed_events(self):
         return list(self.observed_events.keys())
@@ -142,8 +235,8 @@ class NetworkNode:
 
         for response in latest_alignment_responses:
             external_alignment = response.alignment.append_missing_log_moves(additional_log_moves)
-            internal_alignment = calculate_alignment(self.activities_to_align,
-                                                     self.model.get_child(response.entry_point))
+            internal_alignment = calculate_alignment(
+                self.activities_to_align, self.model.get_child(response.entry_point))
             complete_alignment = external_alignment + internal_alignment
 
             # We follow this path only when it is reachable
@@ -178,8 +271,8 @@ class NetworkNode:
         external_alignments: List[AlignmentResponse] = []
 
         for possible_entry_point in self._get_entry_points():
-            external_alignment = (self.network.get_node(possible_entry_point.label.location)
-                                  .get_alignment(possible_entry_point))
+            external_alignment = (
+                self.network.get_node(possible_entry_point.label.location).get_alignment(possible_entry_point))
             if external_alignment.timestamp >= 0:
                 external_alignments.append(external_alignment)
 
@@ -202,83 +295,6 @@ SKIP = LocatedActivity(">>", "skip")
 SYNC_COST = 0
 LOG_COST = 1
 MODEL_COST = 1
-
-
-class Alignment:
-    def __init__(self):
-        self.elements: List[AlignmentElement] = []
-
-    def sync_move(self, sync_move: LocatedActivity):
-        this_alignment = deepcopy(self)
-        this_alignment.elements.append(AlignmentElement(sync_move, sync_move))
-        return this_alignment
-
-    def move_on_model_skip_log(self, model_move: LocatedActivity):
-        this_alignment = deepcopy(self)
-        this_alignment.elements.append(AlignmentElement(model_move, SKIP))
-        return this_alignment
-
-    def move_on_log_skip_model(self, log_move: LocatedActivity):
-        this_alignment = deepcopy(self)
-        this_alignment.elements.append(AlignmentElement(SKIP, log_move))
-        return this_alignment
-
-    def get_cost(self):
-        cost = 0
-        for element in self.elements:
-            if element.log == SKIP:
-                cost += MODEL_COST
-            elif element.model == SKIP:
-                cost += LOG_COST
-        return cost
-
-    def __add__(self, other):
-        this_self = deepcopy(self)
-        if not other:
-            return this_self
-        resulting_alignment = Alignment()
-        resulting_alignment.elements.extend(this_self.elements)
-        resulting_alignment.elements.extend(other.elements)
-        return resulting_alignment
-
-    def __lt__(self, other):
-        if self.get_cost() == other.get_cost():
-            return len(self.elements) < len(other.elements)
-        return self.get_cost() < other.get_cost()
-
-    def __eq__(self, other):
-        if len(self.elements) != len(other.elements):
-            return False
-
-        for i in range(len(self.elements)):
-            if self.elements[i] != other.elements[i]:
-                return False
-        return True
-
-    def __str__(self):
-        final_string = ""
-        for element in self.elements:
-            final_string += str(element) + "\n"
-        return f"[Cost:{self.get_cost()}]\n{final_string}"
-
-    def get_all_log_moves(self):
-        all_log_moves = []
-        for element in self.elements:
-            if element.log != SKIP:
-                all_log_moves.append(element.log)
-        return all_log_moves
-
-    def append_missing_log_moves(self, log_moves):
-        missing_log_moves = []
-        for log_move in log_moves:
-            if log_move not in self.get_all_log_moves():
-                missing_log_moves.append(log_move)
-        if not missing_log_moves:
-            return deepcopy(self)
-        for log_move in missing_log_moves:
-            alignment = self.move_on_log_skip_model(log_move)
-        return deepcopy(alignment)
-
 
 class AlignmentElement:
     def __init__(self, model, log):

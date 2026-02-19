@@ -110,6 +110,34 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("F", "c" if c else "n2")
         ]
 
+
+    def _get_training_traces_skip_node(self, c: bool):
+        return [
+            [
+                LocatedActivity("A", "c" if c else "n1"),
+                LocatedActivity("B", "c" if c else "n2"),
+                LocatedActivity("C", "c" if c else "n3"),
+                #LocatedActivity("D", "c" if c else "n1"),
+                #LocatedActivity("E", "c" if c else "n2"),
+                #LocatedActivity("F", "c" if c else "n1")
+            ]
+        ]
+
+    def _get_validation_traces_skip_node(self, c: bool):
+        return [
+            LocatedActivity("A", "c" if c else "n1"),
+            LocatedActivity("C", "c" if c else "n3"),
+        ]
+
+    def _get_validation_traces_skip_node2(self, c: bool):
+        return [
+            LocatedActivity("A", "c" if c else "n1"),
+            LocatedActivity("B", "c" if c else "n2"),
+            LocatedActivity("C", "c" if c else "n3"),
+            LocatedActivity("D", "c" if c else "n1"),
+            LocatedActivity("F", "c" if c else "n1"),
+        ]
+
     def _run(self, training_trace, validation_trace):
         trie_builders = {}
         last_event = None
@@ -169,6 +197,20 @@ class TrieTestiTest(unittest.TestCase):
                                          self._get_validation_traces_skip_after_entry_point(False))
         alignments_central = self._run(self._get_training_traces_skip_after_entry_point(True),
                                        self._get_validation_traces_skip_after_entry_point(True))
+        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+
+    def test_validation_traces_skip_node(self):
+        alignments_decentral = self._run(self._get_training_traces_skip_node(False),
+                                         self._get_validation_traces_skip_node(False))
+        alignments_central = self._run(self._get_training_traces_skip_node(True),
+                                       self._get_validation_traces_skip_node(True))
+        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+
+    def test_validation_traces_skip_node2(self):
+        alignments_decentral = self._run(self._get_training_traces_skip_node(False),
+                                         self._get_validation_traces_skip_node2(False))
+        alignments_central = self._run(self._get_training_traces_skip_node(True),
+                                       self._get_validation_traces_skip_node2(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     # def test_context_sensitive(self):
