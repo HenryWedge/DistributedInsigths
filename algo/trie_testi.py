@@ -288,7 +288,11 @@ class NetworkNode:
         return self.external_alignment + self.internal_alignment
 
     def _is_previous_state_external(self, external_alignments: list[AlignmentResponse]) -> bool:
-        return external_alignments and max(external_alignments, key=lambda x: x.timestamp).timestamp > self.last_i
+        if not external_alignments:
+            return False
+        max_external_timestamp = max(external_alignments, key=lambda x: x.timestamp).timestamp
+        # Check that the last alignment is new and does not go back to the just recorded activity
+        return max_external_timestamp > self.last_i and max_external_timestamp != self.i
 
 
 SKIP = LocatedActivity(">>", "skip")
