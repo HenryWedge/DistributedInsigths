@@ -179,6 +179,7 @@ class NetworkNode:
         self.activities_to_align = []
         self.last_i = -1
         self.i = -1
+        self.leading_node = None
 
     def _get_entry_points(self):
         return [child for child in self.model.get_children() if child.label.location != self.node_id]
@@ -206,16 +207,16 @@ class NetworkNode:
     def get_alignment(self, target, sub_request=False):
         timestamp = None
         if not self.activities_to_align and not sub_request:
-            all_alignments = []
+            all_alignment_responses = []
             for entrypoint in self._get_entry_points():
                 for node in self.network.get_all_nodes(self.node_id):
-                    alignment: Alignment = node.get_alignment(entrypoint, True).alignment
-                    if not alignment.is_empty():
-                        all_alignments.append(node.get_alignment(entrypoint))
-            if all_alignments:
-                latest_alignment_repsonse = max(all_alignments)
-                self.external_alignment = latest_alignment_repsonse.alignment
-                timestamp = latest_alignment_repsonse.timestamp
+                    alignment_response: Alignment = node.get_alignment(entrypoint, True)
+                    if not alignment_response.alignment.is_empty():
+                        all_alignment_responses.append(alignment_response)
+            if all_alignment_responses:
+                latest_alignment_response = max(all_alignment_responses)
+                self.external_alignment = latest_alignment_response.alignment
+                timestamp = latest_alignment_response.timestamp
 
         target_activity = LocatedActivity(target.label.activity, self.node_id)
         internal_alignment = calculate_alignment(
@@ -267,6 +268,12 @@ class NetworkNode:
         for log_move in missing_log_moves:
             constructed_alignment = constructed_alignment.move_on_log_skip_model(log_move)
         return constructed_alignment
+
+    def get_leading_node(self):
+        return self.leading_node
+
+    def take_over_lead(self, node_id):
+        self.leading_node = node_id
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
