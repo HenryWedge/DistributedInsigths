@@ -110,6 +110,20 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("F", "c" if c else "n2")
         ]
 
+    def _get_training_traces_skip_node_simple(self, c: bool):
+        return [
+            [
+                LocatedActivity("A", "c" if c else "n1"),
+                LocatedActivity("B", "c" if c else "n2"),
+                LocatedActivity("C", "c" if c else "n1"),
+            ]
+        ]
+
+    def _get_validation_traces_skip_node_simple(self, c: bool):
+        return [
+            LocatedActivity("A", "c" if c else "n1"),
+            LocatedActivity("C", "c" if c else "n1"),
+        ]
 
     def _get_training_traces_skip_node(self, c: bool):
         return [
@@ -117,9 +131,10 @@ class TrieTestiTest(unittest.TestCase):
                 LocatedActivity("A", "c" if c else "n1"),
                 LocatedActivity("B", "c" if c else "n2"),
                 LocatedActivity("C", "c" if c else "n3"),
-                #LocatedActivity("D", "c" if c else "n1"),
-                #LocatedActivity("E", "c" if c else "n2"),
-                #LocatedActivity("F", "c" if c else "n1")
+                LocatedActivity("D", "c" if c else "n1"),
+                LocatedActivity("E", "c" if c else "n2"),
+                LocatedActivity("F", "c" if c else "n3"),
+                # LocatedActivity("F", "c" if c else "n1")
             ]
         ]
 
@@ -135,7 +150,8 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("B", "c" if c else "n2"),
             LocatedActivity("C", "c" if c else "n3"),
             LocatedActivity("D", "c" if c else "n1"),
-            LocatedActivity("F", "c" if c else "n1"),
+            LocatedActivity("F", "c" if c else "n3"),
+            # LocatedActivity("F", "c" if c else "n1"),
         ]
 
     def _run(self, training_trace, validation_trace):
@@ -168,7 +184,7 @@ class TrieTestiTest(unittest.TestCase):
     def _assert_equality_of_alignments(self, alignments_decentral, alignments_central):
         fail = False
         for i in range(len(alignments_decentral)):
-            #self.assertEqual(len(alignments_central[i].elements), len(alignments_decentral[i].elements))
+            self.assertEqual(len(alignments_central[i].elements), len(alignments_decentral[i].elements))
             set_central = set(alignments_central[i].elements)
             set_decentral = set(alignments_decentral[i].elements)
             not_matching = set_central.difference(set_decentral)
@@ -206,11 +222,18 @@ class TrieTestiTest(unittest.TestCase):
                                        self._get_validation_traces_skip_node(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
-    def test_validation_traces_skip_node2(self):
+    def test_validation_traces_skip_node2(  self):
         alignments_decentral = self._run(self._get_training_traces_skip_node(False),
                                          self._get_validation_traces_skip_node2(False))
         alignments_central = self._run(self._get_training_traces_skip_node(True),
                                        self._get_validation_traces_skip_node2(True))
+        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+
+    def test_validation_traces_skip_node_simple(self):
+        alignments_decentral = self._run(self._get_training_traces_skip_node_simple(False),
+                                         self._get_validation_traces_skip_node_simple(False))
+        alignments_central = self._run(self._get_training_traces_skip_node_simple(True),
+                                       self._get_validation_traces_skip_node_simple(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     # def test_context_sensitive(self):
