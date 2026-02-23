@@ -4,6 +4,7 @@ from typing import List
 
 from algo.network import Network
 
+
 class LocatedActivity:
     def __init__(self, activity, location):
         self.activity = activity
@@ -27,6 +28,10 @@ class LocatedActivity:
 class Alignment:
     def __init__(self):
         self.elements: List[AlignmentElement] = []
+        self.processed_events = 0
+
+    def increment_processed_events(self):
+        self.processed_events += 1
 
     def sync_move(self, sync_move: LocatedActivity):
         this_alignment = deepcopy(self)
@@ -198,18 +203,19 @@ class NetworkNode:
                 return self.observed_events[element.model]
         return -1
 
-    def get_alignment(self, target):
+    def get_alignment(self, target, sub_request=False):
         timestamp = None
-        if not self.activities_to_align:
+        if not self.activities_to_align and not sub_request:
             all_alignments = []
             for entrypoint in self._get_entry_points():
                 for node in self.network.get_all_nodes(self.node_id):
-                    alignment: Alignment = node.get_alignment(entrypoint).alignment
+                    alignment: Alignment = node.get_alignment(entrypoint, True).alignment
                     if not alignment.is_empty():
                         all_alignments.append(node.get_alignment(entrypoint))
-            latest_alignment_repsonse = max(all_alignments)
-            self.external_alignment = latest_alignment_repsonse.alignment
-            timestamp = latest_alignment_repsonse.timestamp
+            if all_alignments:
+                latest_alignment_repsonse = max(all_alignments)
+                self.external_alignment = latest_alignment_repsonse.alignment
+                timestamp = latest_alignment_repsonse.timestamp
 
         target_activity = LocatedActivity(target.label.activity, self.node_id)
         internal_alignment = calculate_alignment(
@@ -217,6 +223,7 @@ class NetworkNode:
             self._trie_without_entrypoints(),
             target_activity
         )
+
         return AlignmentResponse(
             # IMPORTANT! timestamp is not None otherwise it would evaluate to True on timestamp 0
             timestamp if timestamp is not None else self._get_last_processed_event(internal_alignment),
@@ -239,14 +246,11 @@ class NetworkNode:
                 self.activities_to_align, self.model.get_child(response.entry_point))
             complete_alignment = external_alignment + internal_alignment
 
-            # We follow this path only when it is reachable
-            # We must implement that we somehow assign a cost to this case so we take the shortest skips within
-            if internal_alignment:
-                if not best_alignment or best_alignment > complete_alignment:
-                    best_alignment = complete_alignment
-                    best_internal_alignment = internal_alignment
-                    best_external_alignment = external_alignment
-                    best_entrypoint = response.entry_point
+            if not best_alignment or best_alignment > complete_alignment:
+                best_alignment = complete_alignment
+                best_internal_alignment = internal_alignment
+                best_external_alignment = external_alignment
+                best_entrypoint = response.entry_point
 
         return best_entrypoint, best_internal_alignment, best_external_alignment
 
@@ -364,11 +368,16 @@ def calculate_alignment(trace, trie_node: Trie, target=None):
         # 3. Schritt im Log (Skip Model / Move on Log)
         if trace_idx < len(trace):
             # In the central case we want to enforce that the alignment goes to the end of the trace
-            if target or trace_idx != len(trace) - 1:
+            if (
+                    target
+                    or trace_idx != len(trace) - 1
+                    or not queue
+            ):
                 heapq.heappush(queue, (
                     path.move_on_log_skip_model(trace[trace_idx]),
                     id(current_node),
                     current_node,
                     trace_idx + 1
                 ))
+
     return None
