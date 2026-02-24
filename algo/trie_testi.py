@@ -139,6 +139,14 @@ class Trie:
     def add_child(self, trie: 'Trie'):
         self.children.append(trie)
 
+    def contains(self, label) -> bool:
+        if self.label == label:
+            return True
+        for child in self.children:
+            if child.contains(label):
+                return True
+        return False
+
 
 class TrieBuilder:
     def __init__(self, trie: Trie):
@@ -165,6 +173,9 @@ class AlignmentResponse:
     def __lt__(self, other):
         return self.alignment > other.alignment
 
+    def is_empty(self):
+        return not self.alignment or self.alignment.is_empty()
+
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
@@ -183,6 +194,9 @@ class NetworkNode:
 
     def _get_entry_points(self):
         return [child for child in self.model.get_children() if child.label.location != self.node_id]
+
+    def _get_entry_points_containing_label(self, label):
+        return [child for child in self.model.get_children() if child.label.location != self.node_id and child.contains(label)]
 
     def _trie_without_entrypoints(self):
         trie = Trie()
@@ -206,19 +220,28 @@ class NetworkNode:
 
     def get_alignment(self, target, sub_request=False):
         timestamp = None
-        if not self.activities_to_align and not sub_request:
+        external_alignment = None
+        if not sub_request:
             all_alignment_responses = []
-            for entrypoint in self._get_entry_points():
-                for node in self.network.get_all_nodes(self.node_id):
-                    alignment_response: Alignment = node.get_alignment(entrypoint, True)
-                    if not alignment_response.alignment.is_empty():
-                        all_alignment_responses.append(alignment_response)
+            for entrypoint in self.model.get_children():
+                node = self.network.get_node(entrypoint.label.location)
+                alignment_response: Alignment = node.get_alignment(entrypoint, True)
+                if not alignment_response.alignment.is_empty():
+                    all_alignment_responses.append(alignment_response)
             if all_alignment_responses:
-                latest_alignment_response = max(all_alignment_responses)
-                self.external_alignment = latest_alignment_response.alignment
-                timestamp = latest_alignment_response.timestamp
+                latest_alignment_response = max(all_alignment_responses, key=lambda x: x.timestamp)
+                if latest_alignment_response.timestamp > self.last_i:
+                    external_alignment = latest_alignment_response.alignment
+                    timestamp = latest_alignment_response.timestamp
+        if not external_alignment:
+            external_alignment = self.external_alignment
 
         target_activity = LocatedActivity(target.label.activity, self.node_id)
+
+        for log_move in external_alignment.get_all_log_moves():
+            if log_move in self.activities_to_align:
+                self.activities_to_align.remove(log_move)
+
         internal_alignment = calculate_alignment(
             self.activities_to_align,
             self._trie_without_entrypoints(),
@@ -228,14 +251,14 @@ class NetworkNode:
         return AlignmentResponse(
             # IMPORTANT! timestamp is not None otherwise it would evaluate to True on timestamp 0
             timestamp if timestamp is not None else self._get_last_processed_event(internal_alignment),
-            self.external_alignment + internal_alignment,
+            external_alignment + internal_alignment,
             target_activity
         )
 
     def get_observed_events(self):
         return list(self.observed_events.keys())
 
-    def _construct_alignment_from_responses(self, latest_alignment_responses: List[AlignmentResponse]):
+    def _construct_alignment_from_responses(self, latest_alignment_responses: List[AlignmentResponse], activities_to_align):
         best_alignment: Alignment = None
         additional_log_moves: List[LocatedActivity] = []
         for node in self.network.get_all_nodes(self.node_id):
@@ -244,7 +267,7 @@ class NetworkNode:
         for response in latest_alignment_responses:
             external_alignment = response.alignment.append_missing_log_moves(additional_log_moves)
             internal_alignment = calculate_alignment(
-                self.activities_to_align, self.model.get_child(response.entry_point))
+                activities_to_align, self.model.get_child(response.entry_point))
             complete_alignment = external_alignment + internal_alignment
 
             if not best_alignment or best_alignment > complete_alignment:
@@ -277,8 +300,6 @@ class NetworkNode:
 
     def process_event(self, located_activity: LocatedActivity, i: int):
         self.i = i
-        self.observed_events[located_activity] = self.i
-        self.activities_to_align.append(located_activity)
         external_alignments: List[AlignmentResponse] = []
 
         for possible_entry_point in self._get_entry_points():
@@ -287,10 +308,13 @@ class NetworkNode:
             if external_alignment.timestamp >= 0:
                 external_alignments.append(external_alignment)
 
+        self.activities_to_align.append(located_activity)
+        self.observed_events[located_activity] = self.i
+
         if self._is_previous_state_external(external_alignments):
             self.activities_to_align = [located_activity]
             entry_point, self.internal_alignment, self.external_alignment = (
-                self._construct_alignment_from_responses(external_alignments))
+                self._construct_alignment_from_responses(external_alignments, [located_activity]))
             self.current_model = self.model.get_child(entry_point)
         else:
             self.internal_alignment = calculate_alignment(self.activities_to_align, self.current_model)
