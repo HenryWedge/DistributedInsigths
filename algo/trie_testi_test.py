@@ -117,6 +117,7 @@ class TrieTestiTest(unittest.TestCase):
             [
                 LocatedActivity("A", "c" if c else "n1"),
                 LocatedActivity("B", "c" if c else "n2"),
+                LocatedActivity("B2", "c" if c else "n2"),
                 LocatedActivity("C", "c" if c else "n1"),
             ]
         ]
@@ -136,7 +137,6 @@ class TrieTestiTest(unittest.TestCase):
                 LocatedActivity("D", "c" if c else "n1"),
                 LocatedActivity("E", "c" if c else "n2"),
                 LocatedActivity("F", "c" if c else "n3"),
-                # LocatedActivity("F", "c" if c else "n1")
             ]
         ]
 
@@ -153,7 +153,6 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("C", "c" if c else "n3"),
             LocatedActivity("D", "c" if c else "n1"),
             LocatedActivity("F", "c" if c else "n3"),
-            # LocatedActivity("F", "c" if c else "n1"),
         ]
 
     def _run(self, training_trace, validation_trace):

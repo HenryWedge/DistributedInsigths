@@ -218,8 +218,8 @@ class NetworkNode:
         filtered = {k: v for k, v in self.observed_events.items() if min_i < k < max_i}
         return [value for key, value in sorted(filtered.items())]
 
-    def get_alignment(self, target: LocatedActivity) -> AlignmentResponse:
-        alignment, ts, last_node = self.find_best_alignment(target)
+    def get_alignment(self, target: LocatedActivity, i) -> AlignmentResponse:
+        alignment, ts, last_node = self.find_best_alignment(target, i)
         return AlignmentResponse(
             max(self.i, ts),
             alignment,
@@ -230,10 +230,10 @@ class NetworkNode:
     def process_event(self, located_activity: LocatedActivity, i: int) -> Alignment:
         self.i = i
         self.observed_events[i] = located_activity
-        alignment, ts, last_node = self.find_best_alignment(located_activity)
+        alignment, ts, last_node = self.find_best_alignment(located_activity, i, is_start=True)
         return alignment
 
-    def find_best_alignment(self, target: LocatedActivity=None) -> Any:
+    def find_best_alignment(self, target: LocatedActivity=None, i=sys.maxsize, is_start=False) -> Any:
         candidate_alignments = []
         best_alignment: Alignment | None = None
         timestamp = -1
@@ -249,12 +249,21 @@ class NetworkNode:
                     if entry_point.label in self.cache:
                         alignment, timestamp = self.cache[entry_point.label]
                     else:
-                        alignment_response = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label)
+                        alignment_response = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i)
                         alignment = alignment_response.alignment
                         timestamp = alignment_response.timestamp
                         last_node = alignment_response.last_node
                     model = self.model.get_child(entry_point.label)
-                local_alignment = calculate_alignment(self._get_trace(timestamp), model, target)
+
+                if last_node != self.node_id:
+                    local_alignment = calculate_alignment(self._get_trace(timestamp, i if not is_start and i == self.i else sys.maxsize), model, target)
+                else:
+                    local_alignment = calculate_alignment(self._get_trace(timestamp-1), model, target)
+
+                if not local_alignment.contains_log_moves():
+                    last_node = alignment_response.last_node
+                else:
+                    last_node = self.node_id
                 candidate_alignment = alignment + local_alignment
                 candidate_alignments.append(candidate_alignment)
                 if not best_alignment or candidate_alignment < best_alignment:
