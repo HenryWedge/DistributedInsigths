@@ -188,10 +188,8 @@ class NetworkNode:
         self.network.add_node(self.node_id, self)
         self.model: Trie = model
         self.activities_to_align = []
-        self.last_i = -1
         self.i = -1
         self.timestamp = -1
-        self.trace = []
         self.cache = {}
 
     def _get_entry_points(self):
@@ -227,14 +225,11 @@ class NetworkNode:
     def process_event(self, located_activity: LocatedActivity, i: int) -> Alignment:
         self.i = i
         self.observed_events[i] = located_activity
-        print([str(a) for a in self._get_trace()])
-        self.trace.append(located_activity)
         alignment = self.find_best_alignment(located_activity)
         self.cache[located_activity] = alignment
-        self.last_i = deepcopy(self.i)
         return alignment
 
-    def find_best_alignment(self, target: LocatedActivity=None) -> tuple[Alignment, int]:
+    def find_best_alignment(self, target: LocatedActivity=None) -> Alignment:
         candidate_alignments = []
         best_alignment: Alignment | None = None
         timestamp = -1
