@@ -1,4 +1,5 @@
 import heapq
+import sys
 from copy import deepcopy
 from typing import List, Any
 
@@ -186,10 +187,10 @@ class NetworkNode:
         self.network: Network = network
         self.network.add_node(self.node_id, self)
         self.model: Trie = model
-        self.current_model: Trie = model
         self.activities_to_align = []
         self.last_i = -1
         self.i = -1
+        self.timestamp = -1
         self.trace = []
         self.cache = {}
 
@@ -211,8 +212,12 @@ class NetworkNode:
         trie.children.extend(activity_after_entrypoint)
         return trie
 
+    def _get_trace(self, min_i=-1, max_i=sys.maxsize):
+        filtered = {k: v for k, v in self.observed_events.items() if min_i <= k < max_i}
+        return [value for key, value in sorted(filtered.items())]
+
     def get_alignment(self, target: LocatedActivity) -> AlignmentResponse:
-        alignment = self.find_best_alignment(self.trace, target)
+        alignment = self.find_best_alignment(target)
         return AlignmentResponse(
             self.i,
             alignment,
@@ -222,14 +227,17 @@ class NetworkNode:
     def process_event(self, located_activity: LocatedActivity, i: int) -> Alignment:
         self.i = i
         self.observed_events[i] = located_activity
+        print([str(a) for a in self._get_trace()])
         self.trace.append(located_activity)
-        alignment = self.find_best_alignment(list(self.observed_events.values()), located_activity)
+        alignment = self.find_best_alignment(located_activity)
         self.cache[located_activity] = alignment
+        self.last_i = deepcopy(self.i)
         return alignment
 
-    def find_best_alignment(self, trace: List[LocatedActivity], target: LocatedActivity=None) -> Alignment:
+    def find_best_alignment(self, target: LocatedActivity=None) -> tuple[Alignment, int]:
         candidate_alignments = []
         best_alignment: Alignment | None = None
+        timestamp = -1
 
         for entry_point in self.model.get_children():
             entry_point_model = self.model.get_child(entry_point.label)
@@ -238,13 +246,14 @@ class NetworkNode:
                 model = self.model
                 if entry_point.label.location != self.node_id:
                     if entry_point.label in self.cache:
-                        alignment = self.cache[entry_point.label]
+                        alignment, timestamp = self.cache[entry_point.label]
                     else:
-                        alignment = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label).alignment
-                        self.cache[entry_point.label] = alignment
+                        alignment_response = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label)
+                        alignment = alignment_response.alignment
+                        timestamp = alignment_response.timestamp
+                        self.cache[entry_point.label] = alignment, timestamp
                     model = self.model.get_child(entry_point.label)
-                    self.current_model = self.model.get_child(entry_point.label)
-                local_alignment = calculate_alignment(trace, model, target)
+                local_alignment = calculate_alignment(self._get_trace(timestamp), model, target)
                 candidate_alignment = alignment + local_alignment
                 candidate_alignments.append(candidate_alignment)
                 if not best_alignment or candidate_alignment < best_alignment:

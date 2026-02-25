@@ -1,7 +1,7 @@
 import unittest
 
 from algo.network import Network
-from algo.trie_testi import LocatedActivity, NetworkNode, Trie, TrieBuilder
+from algo.trie_testi_draft import LocatedActivity, NetworkNode, Trie, TrieBuilder
 
 
 class TrieTestiTest(unittest.TestCase):
