@@ -111,6 +111,7 @@ class Alignment:
             alignment = self.move_on_log_skip_model(log_move)
         return deepcopy(alignment)
 
+
 class Trie:
     def __init__(self, label=None):
         if label:
@@ -143,6 +144,13 @@ class Trie:
     def add_child(self, trie: 'Trie'):
         self.children.append(trie)
 
+    def get_children_containing_label(self, label):
+        return [
+            self.get_child(child.label)
+            for child in self.get_children()
+            if self.get_child(child.label).contains(label)
+        ]
+
     def contains(self, label) -> bool:
         if self.label == label:
             return True
@@ -167,6 +175,7 @@ class TrieBuilder:
 
     def reset(self):
         self.active_trie = self.root_trie
+
 
 class AlignmentResponse:
     def __init__(self, timestamp, alignment, entry_point, last_node):
@@ -203,7 +212,8 @@ class NetworkNode:
         return [child for child in self.model.get_children() if child.label.location == self.node_id]
 
     def _get_entry_points_containing_label(self, label):
-        return [child for child in self.model.get_children() if child.label.location != self.node_id and child.contains(label)]
+        return [child for child in self.model.get_children() if
+                child.label.location != self.node_id and child.contains(label)]
 
     def _trie_without_entrypoints(self):
         trie = Trie()
@@ -233,45 +243,45 @@ class NetworkNode:
         alignment, ts, last_node = self.find_best_alignment(located_activity, i, is_start=True)
         return alignment
 
-    def find_best_alignment(self, target: LocatedActivity=None, i=sys.maxsize, is_start=False) -> Any:
+    def find_best_alignment(self, target: LocatedActivity = None, i=sys.maxsize, is_start=False) -> Any:
         candidate_alignments = []
         best_alignment: Alignment | None = None
         timestamp = -1
         best_timestamp = -1
         last_node = None
 
-        for entry_point in self.model.get_children():
-            entry_point_model = self.model.get_child(entry_point.label)
-            if entry_point_model.contains(target):
-                alignment = Alignment()
-                model = self.model
-                if entry_point.label.location != self.node_id:
-                    if entry_point.label in self.cache:
-                        alignment, timestamp, last_node = self.cache[entry_point.label]
-                    else:
-                        alignment_response = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i)
-                        alignment = alignment_response.alignment
-                        timestamp = alignment_response.timestamp
-                        last_node = alignment_response.last_node
-                    model = self.model.get_child(entry_point.label)
-
-                if last_node != self.node_id:
-                    local_alignment = calculate_alignment(self._get_trace(timestamp, i if not is_start and i == self.i else sys.maxsize), model, target)
+        for entry_point in self.model.get_children_containing_label(target):
+            alignment = Alignment()
+            model = self.model
+            if entry_point.label.location != self.node_id:
+                if entry_point.label in self.cache:
+                    alignment, timestamp, last_node = self.cache[entry_point.label]
                 else:
-                    local_alignment = calculate_alignment(self._get_trace(timestamp-1), model, target)
+                    alignment_response = self.network.get_node(entry_point.label.location).get_alignment(
+                        entry_point.label, i)
+                    alignment = alignment_response.alignment
+                    timestamp = alignment_response.timestamp
+                    last_node = alignment_response.last_node
+                model = self.model.get_child(entry_point.label)
 
-                if not local_alignment.contains_log_moves():
-                    last_node = last_node
-                else:
-                    last_node = self.node_id
+            if last_node != self.node_id:
+                local_alignment = calculate_alignment(
+                    self._get_trace(timestamp, i if not is_start and i == self.i else sys.maxsize), model, target)
+            else:
+                local_alignment = calculate_alignment(self._get_trace(timestamp - 1), model, target)
 
-                candidate_alignment = alignment + local_alignment
-                candidate_alignments.append(candidate_alignment)
-                if not best_alignment or candidate_alignment < best_alignment:
-                    best_alignment = candidate_alignment
-                    best_timestamp = timestamp
-                    best_last_node = last_node
-                    self.cache[entry_point.label] = alignment, best_timestamp, last_node
+            if not local_alignment.contains_log_moves():
+                last_node = last_node
+            else:
+                last_node = self.node_id
+
+            candidate_alignment = alignment + local_alignment
+            candidate_alignments.append(candidate_alignment)
+            if not best_alignment or candidate_alignment < best_alignment:
+                best_alignment = candidate_alignment
+                best_timestamp = timestamp
+                best_last_node = last_node
+                self.cache[entry_point.label] = alignment, best_timestamp, last_node
         return best_alignment, best_timestamp, best_last_node
 
 
@@ -279,6 +289,7 @@ SKIP = LocatedActivity(">>", "skip")
 SYNC_COST = 0
 LOG_COST = 1
 MODEL_COST = 1
+
 
 class AlignmentElement:
     def __init__(self, model, log):
