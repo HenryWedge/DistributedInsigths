@@ -149,8 +149,8 @@ class TrieTestiTest(unittest.TestCase):
     def _get_validation_traces_skip_node2(self, c: bool):
         return [
             LocatedActivity("A", "c" if c else "n1"),
-            LocatedActivity("B", "c" if c else "n2"),
-            LocatedActivity("C", "c" if c else "n3"),
+            #LocatedActivity("B", "c" if c else "n2"),
+            #LocatedActivity("C", "c" if c else "n3"),
             LocatedActivity("D", "c" if c else "n1"),
             LocatedActivity("F", "c" if c else "n3"),
         ]

@@ -247,7 +247,7 @@ class NetworkNode:
                 model = self.model
                 if entry_point.label.location != self.node_id:
                     if entry_point.label in self.cache:
-                        alignment, timestamp = self.cache[entry_point.label]
+                        alignment, timestamp, last_node = self.cache[entry_point.label]
                     else:
                         alignment_response = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i)
                         alignment = alignment_response.alignment
@@ -261,16 +261,17 @@ class NetworkNode:
                     local_alignment = calculate_alignment(self._get_trace(timestamp-1), model, target)
 
                 if not local_alignment.contains_log_moves():
-                    last_node = alignment_response.last_node
+                    last_node = last_node
                 else:
                     last_node = self.node_id
+
                 candidate_alignment = alignment + local_alignment
                 candidate_alignments.append(candidate_alignment)
                 if not best_alignment or candidate_alignment < best_alignment:
                     best_alignment = candidate_alignment
                     best_timestamp = timestamp
                     best_last_node = last_node
-                    self.cache[entry_point.label] = alignment, best_timestamp
+                    self.cache[entry_point.label] = alignment, best_timestamp, last_node
         return best_alignment, best_timestamp, best_last_node
 
 
