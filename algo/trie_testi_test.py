@@ -90,6 +90,7 @@ class TrieTestiTest(unittest.TestCase):
                 LocatedActivity("D", "c" if c else "n2"),
                 LocatedActivity("D2", "c" if c else "n2"),
                 LocatedActivity("D3", "c" if c else "n2"),
+                LocatedActivity("D4", "c" if c else "n2"),
                 LocatedActivity("F", "c" if c else "n2")
             ],
             [
@@ -107,6 +108,7 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("A", "c" if c else "n1"),
             LocatedActivity("B", "c" if c else "n1"),
             LocatedActivity("D2", "c" if c else "n2"),
+            LocatedActivity("D4", "c" if c else "n2"),
             LocatedActivity("F", "c" if c else "n2")
         ]
 

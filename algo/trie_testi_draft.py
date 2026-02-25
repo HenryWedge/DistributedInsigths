@@ -97,6 +97,9 @@ class Alignment:
                 all_log_moves.append(element.log)
         return all_log_moves
 
+    def contains_log_moves(self):
+        return len(self.get_all_log_moves()) > 0
+
     def append_missing_log_moves(self, log_moves):
         missing_log_moves = []
         for log_move in log_moves:
@@ -166,10 +169,11 @@ class TrieBuilder:
         self.active_trie = self.root_trie
 
 class AlignmentResponse:
-    def __init__(self, timestamp, alignment, entry_point):
+    def __init__(self, timestamp, alignment, entry_point, last_node):
         self.timestamp: int = timestamp
         self.alignment: Alignment = alignment
         self.entry_point = entry_point
+        self.last_node = last_node
 
     def __lt__(self, other):
         return self.alignment > other.alignment
@@ -215,17 +219,18 @@ class NetworkNode:
         return [value for key, value in sorted(filtered.items())]
 
     def get_alignment(self, target: LocatedActivity) -> AlignmentResponse:
-        alignment, ts = self.find_best_alignment(target)
+        alignment, ts, last_node = self.find_best_alignment(target)
         return AlignmentResponse(
             max(self.i, ts),
             alignment,
-            target
+            target,
+            last_node
         )
 
     def process_event(self, located_activity: LocatedActivity, i: int) -> Alignment:
         self.i = i
         self.observed_events[i] = located_activity
-        alignment, ts = self.find_best_alignment(located_activity)
+        alignment, ts, last_node = self.find_best_alignment(located_activity)
         return alignment
 
     def find_best_alignment(self, target: LocatedActivity=None) -> Any:
@@ -233,6 +238,7 @@ class NetworkNode:
         best_alignment: Alignment | None = None
         timestamp = -1
         best_timestamp = -1
+        last_node = None
 
         for entry_point in self.model.get_children():
             entry_point_model = self.model.get_child(entry_point.label)
@@ -246,15 +252,20 @@ class NetworkNode:
                         alignment_response = self.network.get_node(entry_point.label.location).get_alignment(entry_point.label)
                         alignment = alignment_response.alignment
                         timestamp = alignment_response.timestamp
-                    model = self.model.get_child(entry_point.label)
+                        last_node = alignment_response.last_node
+                    if last_node != self.node_id:
+                        model = self.model.get_child(entry_point.label)
                 local_alignment = calculate_alignment(self._get_trace(timestamp), model, target)
+                if local_alignment.contains_log_moves():
+                    last_node = self.node_id
                 candidate_alignment = alignment + local_alignment
                 candidate_alignments.append(candidate_alignment)
                 if not best_alignment or candidate_alignment < best_alignment:
                     best_alignment = candidate_alignment
                     best_timestamp = timestamp
+                    best_last_node = last_node
                     self.cache[entry_point.label] = alignment, best_timestamp
-        return best_alignment, best_timestamp
+        return best_alignment, best_timestamp, best_last_node
 
 
 SKIP = LocatedActivity(">>", "skip")
