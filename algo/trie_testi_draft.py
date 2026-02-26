@@ -213,6 +213,9 @@ class NetworkNode:
 
     def get_alignment(self, target: LocatedActivity, i) -> AlignmentResponse:
         response: AlignmentResponse = self.find_best_alignment(target, i)
+        if not response:
+            return None
+
         return AlignmentResponse(
             max(self.i, response.timestamp),
             response.alignment,
@@ -241,6 +244,8 @@ class NetworkNode:
             all_candidate_alignments.append(
                 AlignmentResponse(response.timestamp, candidate_alignment, target, last_node))
 
+        if not all_candidate_alignments:
+            return None
         all_candidate_alignments = self._add_external_log_moves(all_candidate_alignments)
         best_alignment_response = min(all_candidate_alignments, key=lambda x: x.alignment)
 
@@ -273,6 +278,12 @@ class NetworkNode:
             else:
                 alignment_response = (
                     self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i))
+                #all_responses = []
+                #for node in self.network.get_all_nodes(self.node_id):
+                #    response = node.get_alignment(entry_point.label, i)
+                #    if response:
+                #        all_responses.append(response)
+                #alignment_response = min(all_responses, key=lambda x: x.alignment)
             model = self.model.get_child(entry_point.label)
 
         self.cache[entry_point.label] = alignment_response
