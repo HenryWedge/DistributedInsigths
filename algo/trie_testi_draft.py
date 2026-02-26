@@ -164,7 +164,6 @@ class Trie:
                 return True
         return False
 
-
 class TrieBuilder:
     def __init__(self, trie: Trie):
         self.root_trie = trie
@@ -181,7 +180,6 @@ class TrieBuilder:
     def reset(self):
         self.active_trie = self.root_trie
 
-
 class AlignmentResponse:
     def __init__(self, timestamp, alignment, entry_point, last_node):
         self.timestamp: int = timestamp
@@ -194,7 +192,6 @@ class AlignmentResponse:
 
     def is_empty(self):
         return not self.alignment or self.alignment.is_empty()
-
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
@@ -244,6 +241,7 @@ class NetworkNode:
             all_candidate_alignments.append(
                 AlignmentResponse(response.timestamp, candidate_alignment, target, last_node))
 
+        all_candidate_alignments = self._add_external_log_moves(all_candidate_alignments)
         best_alignment_response = min(all_candidate_alignments, key=lambda x: x.alignment)
 
         return AlignmentResponse(
@@ -251,6 +249,19 @@ class NetworkNode:
             best_alignment_response.alignment,
             target, best_alignment_response.last_node
         )
+
+    def _add_external_log_moves(self, responses: List[AlignmentResponse]):
+        all_log_moves = []
+        for response in responses:
+            for log_move in response.alignment.get_all_log_moves():
+                if log_move not in all_log_moves:
+                    all_log_moves.append(log_move)
+        response_with_external_log_moves = []
+        for response in responses:
+            alignment_with_log_moves = response.alignment.append_missing_log_moves(all_log_moves)
+            response.alignment = alignment_with_log_moves
+            response_with_external_log_moves.append(response)
+        return response_with_external_log_moves
 
     def _request_external_alignment(self, entry_point: Trie, i: int) -> tuple[AlignmentResponse, Trie]:
         model = self.model
