@@ -206,24 +206,9 @@ class NetworkNode:
         self.observed_events = {}
         self.cache = {}
 
-    def _get_entry_points(self):
-        return [child for child in self.model.get_children() if child.label.location != self.node_id]
-
-    def _get_start_activities(self):
-        return [child for child in self.model.get_children() if child.label.location == self.node_id]
-
     def _get_entry_points_containing_label(self, label):
         return [child for child in self.model.get_children() if
                 child.label.location != self.node_id and child.contains(label)]
-
-    def _trie_without_entrypoints(self):
-        trie = Trie()
-        start_activities = [child for child in self.model.get_children() if child.label.location == self.node_id]
-        entry_points = self._get_entry_points()
-        activity_after_entrypoint = [child for entry_point in entry_points for child in entry_point.get_children()]
-        trie.children.extend(start_activities)
-        trie.children.extend(activity_after_entrypoint)
-        return trie
 
     def _get_trace(self, min_i=-1, max_i=sys.maxsize):
         filtered = {k: v for k, v in self.observed_events.items() if min_i < k < max_i}
@@ -249,7 +234,7 @@ class NetworkNode:
         for entry_point in self.model.get_children_containing_label(target):
             response, model = self._request_external_alignment(entry_point, i)
             last_node = response.last_node
-            trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp, target)
+            trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp)
             local_alignment = calculate_alignment(trace, model, target)
 
             if local_alignment.contains_log_moves():
@@ -282,19 +267,10 @@ class NetworkNode:
         self.cache[entry_point.label] = alignment_response
         return alignment_response, model
 
-    def _get_relevant_local_trace(self, i: int, is_start: bool, last_node, timestamp: int, target) -> list[Any]:
-        if last_node == self.node_id:
-            trace = self._get_trace(timestamp - 1)
-            if not is_start and i == self.i:
-                trace = self._get_trace(timestamp - 1, i)
-        elif not is_start and i == self.i:
-            trace = self._get_trace(timestamp, i)
-        else:
-            trace = self._get_trace(timestamp)
-        return trace
-
-    def _get(self):
-        pass
+    def _get_relevant_local_trace(self, i: int, is_start: bool, last_node, timestamp: int) -> list[Any]:
+        max_time = i if not is_start and i == self.i else sys.maxsize
+        min_time = timestamp - 1 if last_node == self.node_id else timestamp
+        return self._get_trace(min_time, max_time)
 
 
 SKIP = LocatedActivity(">>", "skip")
