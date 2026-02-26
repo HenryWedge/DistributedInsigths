@@ -244,12 +244,12 @@ class NetworkNode:
         for entry_point in self.model.get_children_containing_label(target):
             response, model = self._request_external_alignment(entry_point, i)
             last_node = response.last_node
-
             trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp)
-
             local_alignment = calculate_alignment(trace, model, target)
+
             if local_alignment.contains_log_moves():
                 last_node = self.node_id
+
             candidate_alignment = response.alignment + local_alignment
 
             if not best_alignment_response or candidate_alignment < best_alignment_response.alignment:
