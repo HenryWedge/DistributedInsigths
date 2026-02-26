@@ -245,7 +245,6 @@ class NetworkNode:
 
     def find_best_alignment(self, target: LocatedActivity = None, i=sys.maxsize, is_start=False) -> Any:
         best_alignment_response: AlignmentResponse | None = None
-
         for entry_point in self.model.get_children_containing_label(target):
             model = self.model
             if self.node_id == entry_point.label.location:
@@ -254,27 +253,35 @@ class NetworkNode:
                 if entry_point.label in self.cache:
                     alignment_response = self.cache[entry_point.label]
                 else:
-                    alignment_response = self.network.get_node(entry_point.label.location).get_alignment(
-                        entry_point.label, i)
+                    alignment_response = (
+                        self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i))
                 model = self.model.get_child(entry_point.label)
 
             timestamp = alignment_response.timestamp
             last_node = alignment_response.last_node
+            external_alignment = alignment_response.alignment
+            self.cache[entry_point.label] = AlignmentResponse(timestamp, external_alignment, target, last_node)
 
-            if last_node != self.node_id:
-                trace = self._get_trace(timestamp, i if not is_start and i == self.i else sys.maxsize)
-            else:
+            if last_node == self.node_id:
                 trace = self._get_trace(timestamp - 1)
+            elif not is_start and i == self.i:
+                trace = self._get_trace(timestamp, i)
+            else:
+                trace = self._get_trace(timestamp)
 
             local_alignment = calculate_alignment(trace, model, target)
             if local_alignment.contains_log_moves():
                 last_node = self.node_id
-            candidate_alignment = alignment_response.alignment + local_alignment
+            candidate_alignment = external_alignment + local_alignment
+
             if not best_alignment_response or candidate_alignment < best_alignment_response.alignment:
                 best_alignment_response = AlignmentResponse(timestamp, candidate_alignment, target, last_node)
-                self.cache[entry_point.label] = AlignmentResponse(timestamp, alignment_response.alignment, target, last_node)
 
-        return AlignmentResponse(best_alignment_response.timestamp, best_alignment_response.alignment, target, best_alignment_response.last_node)
+        return AlignmentResponse(
+            best_alignment_response.timestamp,
+            best_alignment_response.alignment,
+            target, best_alignment_response.last_node
+        )
 
 
 SKIP = LocatedActivity(">>", "skip")
