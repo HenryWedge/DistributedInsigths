@@ -193,16 +193,12 @@ class AlignmentResponse:
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
-        self.observed_events = {}
-        self.external_alignment = Alignment()
-        self.internal_alignment = Alignment()
         self.node_id = node_id
         self.network: Network = network
         self.network.add_node(self.node_id, self)
-        self.model: Trie = model
-        self.activities_to_align = []
         self.i = -1
-        self.timestamp = -1
+        self.model: Trie = model
+        self.observed_events = {}
         self.cache = {}
 
     def _get_entry_points(self):
@@ -246,42 +242,48 @@ class NetworkNode:
     def find_best_alignment(self, target: LocatedActivity = None, i=sys.maxsize, is_start=False) -> Any:
         best_alignment_response: AlignmentResponse | None = None
         for entry_point in self.model.get_children_containing_label(target):
-            model = self.model
-            if self.node_id == entry_point.label.location:
-                alignment_response = AlignmentResponse(-1, Alignment(), entry_point, None)
-            else:
-                if entry_point.label in self.cache:
-                    alignment_response = self.cache[entry_point.label]
-                else:
-                    alignment_response = (
-                        self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i))
-                model = self.model.get_child(entry_point.label)
+            response, model = self._request_external_alignment(entry_point, i)
+            last_node = response.last_node
 
-            timestamp = alignment_response.timestamp
-            last_node = alignment_response.last_node
-            external_alignment = alignment_response.alignment
-            self.cache[entry_point.label] = AlignmentResponse(timestamp, external_alignment, target, last_node)
-
-            if last_node == self.node_id:
-                trace = self._get_trace(timestamp - 1)
-            elif not is_start and i == self.i:
-                trace = self._get_trace(timestamp, i)
-            else:
-                trace = self._get_trace(timestamp)
+            trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp)
 
             local_alignment = calculate_alignment(trace, model, target)
             if local_alignment.contains_log_moves():
                 last_node = self.node_id
-            candidate_alignment = external_alignment + local_alignment
+            candidate_alignment = response.alignment + local_alignment
 
             if not best_alignment_response or candidate_alignment < best_alignment_response.alignment:
-                best_alignment_response = AlignmentResponse(timestamp, candidate_alignment, target, last_node)
+                best_alignment_response = AlignmentResponse(response.timestamp, candidate_alignment, target, last_node)
 
         return AlignmentResponse(
             best_alignment_response.timestamp,
             best_alignment_response.alignment,
             target, best_alignment_response.last_node
         )
+
+    def _get_relevant_local_trace(self, i: int, is_start: bool, last_node, timestamp: int) -> list[Any]:
+        if last_node == self.node_id:
+            trace = self._get_trace(timestamp - 1)
+        elif not is_start and i == self.i:
+            trace = self._get_trace(timestamp, i)
+        else:
+            trace = self._get_trace(timestamp)
+        return trace
+
+    def _request_external_alignment(self, entry_point: Trie, i: int) -> tuple[AlignmentResponse, Trie]:
+        model = self.model
+        if self.node_id == entry_point.label.location:
+            alignment_response = AlignmentResponse(-1, Alignment(), entry_point, None)
+        else:
+            if entry_point.label in self.cache:
+                alignment_response = self.cache[entry_point.label]
+            else:
+                alignment_response = (
+                    self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i))
+            model = self.model.get_child(entry_point.label)
+
+        self.cache[entry_point.label] = alignment_response
+        return alignment_response, model
 
 
 SKIP = LocatedActivity(">>", "skip")
