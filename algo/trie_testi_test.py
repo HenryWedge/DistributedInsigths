@@ -136,7 +136,7 @@ class TrieTestiTest(unittest.TestCase):
                 LocatedActivity("C", "c" if c else "n3"),
                 LocatedActivity("D", "c" if c else "n1"),
                 LocatedActivity("E", "c" if c else "n2"),
-                LocatedActivity("F", "c" if c else "n3"),
+                LocatedActivity("F", "c" if c else "n1"),
             ]
         ]
 
@@ -152,7 +152,7 @@ class TrieTestiTest(unittest.TestCase):
             #LocatedActivity("B", "c" if c else "n2"),
             #LocatedActivity("C", "c" if c else "n3"),
             LocatedActivity("D", "c" if c else "n1"),
-            LocatedActivity("F", "c" if c else "n3"),
+            LocatedActivity("F", "c" if c else "n1"),
         ]
 
     def _run(self, training_trace, validation_trace):
@@ -237,9 +237,9 @@ class TrieTestiTest(unittest.TestCase):
                                        self._get_validation_traces_skip_node_simple(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
-    # def test_context_sensitive(self):
-    #    alignments_decentral = self._run(self._get_training_traces_context_sensitive(False),
-    #                                     self._get_validation_trace_context_sensitive(False))
-    #    alignments_central = self._run(self._get_training_traces_context_sensitive(True),
-    #                                   self._get_validation_trace_context_sensitive(True))
-    #    self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+    #def test_context_sensitive(self):
+    #   alignments_decentral = self._run(self._get_training_traces_context_sensitive(False),
+    #                                    self._get_validation_trace_context_sensitive(False))
+    #   alignments_central = self._run(self._get_training_traces_context_sensitive(True),
+    #                                  self._get_validation_trace_context_sensitive(True))
+    #   self._assert_equality_of_alignments(alignments_decentral, alignments_central)

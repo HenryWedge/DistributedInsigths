@@ -72,6 +72,8 @@ class Alignment:
 
     def __lt__(self, other):
         if self.get_cost() == other.get_cost():
+            if len(self.elements) == len(other.elements):
+                return hash(self) < hash(other)
             return len(self.elements) < len(other.elements)
         return self.get_cost() < other.get_cost()
 
@@ -110,6 +112,9 @@ class Alignment:
         for log_move in missing_log_moves:
             alignment = self.move_on_log_skip_model(log_move)
         return deepcopy(alignment)
+
+    def __hash__(self):
+        return hash(frozenset(self.elements))
 
 
 class Trie:
@@ -240,35 +245,27 @@ class NetworkNode:
         return response.alignment
 
     def find_best_alignment(self, target: LocatedActivity = None, i=sys.maxsize, is_start=False) -> Any:
-        best_alignment_response: AlignmentResponse | None = None
+        all_candidate_alignments: List[AlignmentResponse] = []
         for entry_point in self.model.get_children_containing_label(target):
             response, model = self._request_external_alignment(entry_point, i)
             last_node = response.last_node
-            trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp)
+            trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp, target)
             local_alignment = calculate_alignment(trace, model, target)
 
             if local_alignment.contains_log_moves():
                 last_node = self.node_id
 
             candidate_alignment = response.alignment + local_alignment
+            all_candidate_alignments.append(
+                AlignmentResponse(response.timestamp, candidate_alignment, target, last_node))
 
-            if not best_alignment_response or candidate_alignment < best_alignment_response.alignment:
-                best_alignment_response = AlignmentResponse(response.timestamp, candidate_alignment, target, last_node)
+        best_alignment_response = min(all_candidate_alignments, key=lambda x: x.alignment)
 
         return AlignmentResponse(
             best_alignment_response.timestamp,
             best_alignment_response.alignment,
             target, best_alignment_response.last_node
         )
-
-    def _get_relevant_local_trace(self, i: int, is_start: bool, last_node, timestamp: int) -> list[Any]:
-        if last_node == self.node_id:
-            trace = self._get_trace(timestamp - 1)
-        elif not is_start and i == self.i:
-            trace = self._get_trace(timestamp, i)
-        else:
-            trace = self._get_trace(timestamp)
-        return trace
 
     def _request_external_alignment(self, entry_point: Trie, i: int) -> tuple[AlignmentResponse, Trie]:
         model = self.model
@@ -284,6 +281,20 @@ class NetworkNode:
 
         self.cache[entry_point.label] = alignment_response
         return alignment_response, model
+
+    def _get_relevant_local_trace(self, i: int, is_start: bool, last_node, timestamp: int, target) -> list[Any]:
+        if last_node == self.node_id:
+            trace = self._get_trace(timestamp - 1)
+            if not is_start and i == self.i:
+                trace = self._get_trace(timestamp - 1, i)
+        elif not is_start and i == self.i:
+            trace = self._get_trace(timestamp, i)
+        else:
+            trace = self._get_trace(timestamp)
+        return trace
+
+    def _get(self):
+        pass
 
 
 SKIP = LocatedActivity(">>", "skip")
