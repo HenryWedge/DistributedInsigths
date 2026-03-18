@@ -151,7 +151,7 @@ class Trie:
 
     def get_children_containing_label(self, label):
         return [
-            self.get_child(child.label)
+            self.get_child(child.label).label
             for child in self.get_children()
             if self.get_child(child.label).contains(label)
         ]
@@ -211,6 +211,13 @@ class NetworkNode:
         filtered = {k: v for k, v in self.observed_events.items() if min_i < k < max_i}
         return [value for key, value in sorted(filtered.items())]
 
+    def get_all_moves(self, i):
+        result = []
+        for key in self.observed_events:
+            if key < i:
+                result.append(self.observed_events[key])
+        return result
+
     def get_alignment(self, target: LocatedActivity, i) -> AlignmentResponse:
         response: AlignmentResponse = self.find_best_alignment(target, i)
         if not response:
@@ -246,7 +253,7 @@ class NetworkNode:
 
         if not all_candidate_alignments:
             return None
-        all_candidate_alignments = self._add_external_log_moves(all_candidate_alignments)
+        all_candidate_alignments = self._add_external_log_moves(all_candidate_alignments, i)
         best_alignment_response = min(all_candidate_alignments, key=lambda x: x.alignment)
 
         return AlignmentResponse(
@@ -255,13 +262,15 @@ class NetworkNode:
             target, best_alignment_response.last_node
         )
 
-    def _add_external_log_moves(self, responses: List[AlignmentResponse]):
+    def _add_external_log_moves(self, responses: List[AlignmentResponse], i):
         all_log_moves = []
-        for response in responses:
-            for log_move in response.alignment.get_all_log_moves():
-                if log_move not in all_log_moves:
-                    all_log_moves.append(log_move)
+        #for response in responses:
+        #    for log_move in response.alignment.get_all_log_moves():
+        #        if log_move not in all_log_moves:
+        #            all_log_moves.append(log_move)
         response_with_external_log_moves = []
+        for node in self.network.get_all_nodes(self.node_id):
+            all_log_moves.extend(node.get_all_moves(i))
         for response in responses:
             alignment_with_log_moves = response.alignment.append_missing_log_moves(all_log_moves)
             response.alignment = alignment_with_log_moves
@@ -270,23 +279,17 @@ class NetworkNode:
 
     def _request_external_alignment(self, entry_point: Trie, i: int) -> tuple[AlignmentResponse, Trie]:
         model = self.model
-        if self.node_id == entry_point.label.location:
+        if self.node_id == entry_point.location:
             alignment_response = AlignmentResponse(-1, Alignment(), entry_point, None)
         else:
-            if entry_point.label in self.cache:
-                alignment_response = self.cache[entry_point.label]
+            if entry_point in self.cache:
+                alignment_response = self.cache[entry_point]
             else:
                 alignment_response = (
-                    self.network.get_node(entry_point.label.location).get_alignment(entry_point.label, i))
-                #all_responses = []
-                #for node in self.network.get_all_nodes(self.node_id):
-                #    response = node.get_alignment(entry_point.label, i)
-                #    if response:
-                #        all_responses.append(response)
-                #alignment_response = min(all_responses, key=lambda x: x.alignment)
-            model = self.model.get_child(entry_point.label)
+                    self.network.get_node(entry_point.location).get_alignment(entry_point, i))
+            model = self.model.get_child(entry_point)
 
-        self.cache[entry_point.label] = alignment_response
+        self.cache[entry_point] = alignment_response
         return alignment_response, model
 
     def _get_relevant_local_trace(self, i: int, is_start: bool, last_node, timestamp: int) -> list[Any]:
@@ -320,7 +323,6 @@ class AlignmentElement:
 
 
 def calculate_alignment(trace, trie_node: Trie, target=None):
-    # Priority Queue: (cost, trie_node, trace_index, path)
     start_node = trie_node
     queue = [(Alignment(), id(start_node), start_node, 0)]
     visited = set()
