@@ -21,8 +21,18 @@ class Context:
     def head(self):
         return self.elements[-1]
 
+    def activities(self):
+        return [element.activity for element in self.elements]
+
     def is_start(self):
         return len(self.elements) == 1
+
+    def __eq__(self, other):
+        return self.elements == other.elements
+
+    def __hash__(self):
+        return hash(self.elements)
+
 
 class ContextProtocolNode:
     def __init__(self, node_id, network):
@@ -32,8 +42,8 @@ class ContextProtocolNode:
         self.observed_events = []
         self.entry_points: Dict[str, List[Context]] = {}
 
-    def add_entry_point(self, activity: str, context: List[Context]):
-        self.entry_points[activity] = context
+    def add_entry_point(self, activity: str, context: Context):
+        self.entry_points[activity].append(context)
 
     def get_insight(self, context):
         score = self.insight(context.head().activity)
@@ -45,7 +55,7 @@ class ContextProtocolNode:
         print(activity)
         return 0 if activity in self.observed_events else 1
 
-    def activity(self, activity):
+    def process_activity(self, activity):
         score = 0
         self.observed_events.append(activity)
         score += self.insight(activity)
@@ -67,17 +77,20 @@ class ModelTrainer:
                 if not loc in network.nodes:
                     ContextProtocolNode(loc, network)
                 node = network.get_node(loc)
-                if history:
-                    full_context_elements = history + [current_event]
+                if not history:
+                    if not "<start>" in node.entry_points:
+                        node.entry_points["<start>"] = []
+                    new_context = Context([current_event])
+                    if new_context not in node.entry_points["<start>"]:
+                        node.add_entry_point("<start>", new_context)
+                else:
                     new_context = Context(deepcopy(history))
-                    if history[-1].location != current_event.location:
-                        if current_event.activity not in node.entry_points:
-                            node.entry_points[current_event.activity] = []
-                        if new_context not in node.entry_points[current_event.activity]:
-                            node.add_entry_point(current_event.activity, [new_context])
+                    if current_event.activity not in node.entry_points:
+                        node.entry_points[current_event.activity] = []
+                    if new_context not in node.entry_points[current_event.activity]:
+                        node.add_entry_point(current_event.activity, new_context)
                 history.append(current_event)
         return network
-
 
 
 if __name__ == '__main__':
@@ -96,11 +109,10 @@ if __name__ == '__main__':
         ]
     ])
 
-    #print(network.get_node("n1").activity("X"))
-    #print("---")
-    print(network.get_node("n1").activity("B"))
+    print(network.get_node("n1").process_activity("X"))
     print("---")
-    #print(network.get_node("n2").activity("C"))
-    #print("---")
-    print(network.get_node("n3").activity("D"))
-
+    print(network.get_node("n1").process_activity("B"))
+    print("---")
+    print(network.get_node("n2").process_activity("C"))
+    print("---")
+    print(network.get_node("n3").process_activity("D"))
