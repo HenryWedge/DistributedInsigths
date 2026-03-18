@@ -110,8 +110,8 @@ if __name__ == '__main__':
     training_traces_count = 1000
     test_traces_count = 100
 
-    event_log_splitter = EventLogSplitter("../gt/test/datasets/BPI_Challenge_2012.xes", location_key="org:resource")
-    #event_log_splitter = EventLogSplitter("../gt/test/datasets/Sepsis.xes", location_key="org:group")
+    #event_log_splitter = EventLogSplitter("../gt/test/datasets/BPI_Challenge_2012.xes", location_key="org:resource")
+    event_log_splitter = EventLogSplitter("../gt/test/datasets/Sepsis.xes", location_key="org:group")
     #event_log_splitter = EventLogSplitter("../gt/test/datasets/PermitLog.xes", location_key="org:resource")
     #event_log_splitter = EventLogSplitter("../gt/test/datasets/MainProcess.xes", location_key="org:resource")
 

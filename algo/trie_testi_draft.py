@@ -252,7 +252,7 @@ class NetworkNode:
                 AlignmentResponse(response.timestamp, candidate_alignment, target, last_node))
 
         if not all_candidate_alignments:
-            return None
+            return calculate_alignment(self._get_trace(), self.model, target)
         all_candidate_alignments = self._add_external_log_moves(all_candidate_alignments, i)
         best_alignment_response = min(all_candidate_alignments, key=lambda x: x.alignment)
 

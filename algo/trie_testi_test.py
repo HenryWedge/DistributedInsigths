@@ -2,7 +2,7 @@ import unittest
 
 from algo.network import Network
 from algo.trie_testi_draft import LocatedActivity, NetworkNode, Trie, TrieBuilder
-
+from gt.event_log_splitter import EventLogSplitter
 
 class TrieTestiTest(unittest.TestCase):
     def _get_training_traces(self, c: bool):
@@ -122,6 +122,31 @@ class TrieTestiTest(unittest.TestCase):
             ]
         ]
 
+    def _get_real_dataset(self, c: bool):
+        event_log_splitter = EventLogSplitter("gt/test/datasets/Sepsis.xes", location_key="org:group")
+        training = event_log_splitter.get_training_data(1)
+        result = []
+
+        for key in training.traces:
+            trace = []
+            for event in training.traces[key]:
+                trace.append(LocatedActivity(event.activity, "c" if c else event.location))
+            result.append(trace)
+        return result
+
+    def _get_real_dataset_validation(self, c: bool):
+        event_log_splitter = EventLogSplitter("gt/test/datasets/Sepsis.xes", location_key="org:group")
+        training = event_log_splitter.get_test_data(1)
+        result = []
+
+        for key in training.traces:
+            trace = []
+            for event in training.traces[key]:
+                trace.append(LocatedActivity(event.activity, "c" if c else event.location))
+            result.append(trace)
+        return result[0]
+
+
     def _get_validation_traces_skip_node_simple(self, c: bool):
         return [
             LocatedActivity("A", "c" if c else "n1"),
@@ -154,6 +179,8 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("D", "c" if c else "n1"),
             LocatedActivity("F", "c" if c else "n1"),
         ]
+
+
 
     def _run(self, training_trace, validation_trace):
         trie_builders = {}
@@ -235,6 +262,13 @@ class TrieTestiTest(unittest.TestCase):
                                          self._get_validation_traces_skip_node_simple(False))
         alignments_central = self._run(self._get_training_traces_skip_node_simple(True),
                                        self._get_validation_traces_skip_node_simple(True))
+        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+
+    def test_real(self):
+        alignments_decentral = self._run(self._get_real_dataset(False),
+                                         self._get_real_dataset_validation(False))
+        alignments_central = self._run(self._get_real_dataset(True),
+                                       self._get_real_dataset_validation(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     #def test_context_sensitive(self):
