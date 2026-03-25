@@ -2,8 +2,8 @@ import unittest
 
 from algo.network import Network
 from algo.alignment_node import LocatedActivity, NetworkNode, Trie
-from algo.trie_builder import TrieBuilder
-from gt.event_log_splitter import EventLogSplitter
+from algo.alignments.trie_builder import TrieBuilder
+from algo.utility.event_log_splitter import EventLogSplitter
 
 class TrieTestiTest(unittest.TestCase):
     def _get_training_traces(self, c: bool):

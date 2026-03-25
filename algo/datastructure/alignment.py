@@ -1,9 +1,9 @@
 from copy import deepcopy
 from typing import List
 
-from algo.alignment_constants import SKIP, MODEL_COST, LOG_COST
-from algo.alignment_element import AlignmentElement
-from algo.located_activity import LocatedActivity
+from algo.datastructure.alignment_constants import SKIP, MODEL_COST, LOG_COST
+from algo.datastructure.alignment_element import AlignmentElement
+from algo.datastructure.located_activity import LocatedActivity
 
 
 class Alignment:

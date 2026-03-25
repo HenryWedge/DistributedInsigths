@@ -3,13 +3,11 @@ from pm4py.objects.log.obj import Event as Pm4PyEvent
 from pm4py.util import constants
 import pandas as pd
 
-from algo.event import Event
+from algo.datastructure.event import Event
 
-from algo.event_log import EventLog
-
+from algo.utility.event_log import EventLog
 
 class Converter:
-
     def to_event_log(self, event_log: Pm4PyEventLog, location_key=None) -> EventLog:
         el = EventLog()
         for trace in event_log:

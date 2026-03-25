@@ -1,4 +1,4 @@
-from algo.trie import Trie
+from algo.datastructure.trie import Trie
 
 
 class TrieBuilder:

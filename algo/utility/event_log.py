@@ -1,5 +1,5 @@
 from typing import Dict, List
-from algo.event import Event
+from algo.datastructure.event import Event
 
 class EventLog:
 

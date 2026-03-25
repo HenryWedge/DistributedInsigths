@@ -1,7 +1,7 @@
 import heapq
 
-from algo.alignment import Alignment
-from algo.trie import Trie
+from algo.datastructure.alignment import Alignment
+from algo.datastructure.trie import Trie
 
 
 def calculate_alignment(trace, trie_node: Trie, target=None):

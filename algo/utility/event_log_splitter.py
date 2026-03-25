@@ -1,6 +1,6 @@
 import random
 import pm4py
-from utility.converter import Converter
+from algo.utility.converter import Converter
 
 class EventLogSplitter:
 

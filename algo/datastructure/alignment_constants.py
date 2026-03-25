@@ -1,4 +1,4 @@
-from algo.located_activity import LocatedActivity
+from algo.datastructure.located_activity import LocatedActivity
 
 SKIP = LocatedActivity(">>", "skip")
 SYNC_COST = 0

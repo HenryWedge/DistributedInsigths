@@ -1,4 +1,4 @@
-from algo.alignment import Alignment
+from algo.datastructure.alignment import Alignment
 
 
 class AlignmentResponse:

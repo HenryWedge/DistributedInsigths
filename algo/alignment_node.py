@@ -1,12 +1,12 @@
 import sys
 from typing import List, Any
 
-from algo.alignment import Alignment
-from algo.alignment_calculator import calculate_alignment
-from algo.alignment_repsonse import AlignmentResponse
-from algo.located_activity import LocatedActivity
+from algo.datastructure.alignment import Alignment
+from algo.alignments.alignment_calculator import calculate_alignment
+from algo.datastructure.alignment_repsonse import AlignmentResponse
+from algo.datastructure.located_activity import LocatedActivity
 from algo.network import Network
-from algo.trie import Trie
+from algo.datastructure.trie import Trie
 
 class NetworkNode:
     def __init__(self, model, network, node_id):
