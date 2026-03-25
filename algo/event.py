@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from algo.trie_node import Activity
+Activity = str
 
 
 class Event:

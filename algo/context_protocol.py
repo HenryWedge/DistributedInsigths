@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import Dict, List
 
 from algo.network import Network
-from algo.trie_testi_draft import LocatedActivity
+from algo.alignment_node import LocatedActivity
 
 
 class Context:

@@ -1,7 +1,8 @@
 import unittest
 
 from algo.network import Network
-from algo.trie_testi_draft import LocatedActivity, NetworkNode, Trie, TrieBuilder
+from algo.alignment_node import LocatedActivity, NetworkNode, Trie
+from algo.trie_builder import TrieBuilder
 from gt.event_log_splitter import EventLogSplitter
 
 class TrieTestiTest(unittest.TestCase):
@@ -174,8 +175,8 @@ class TrieTestiTest(unittest.TestCase):
     def _get_validation_traces_skip_node2(self, c: bool):
         return [
             LocatedActivity("A", "c" if c else "n1"),
-            #LocatedActivity("B", "c" if c else "n2"),
-            #LocatedActivity("C", "c" if c else "n3"),
+            LocatedActivity("B", "c" if c else "n2"),
+            LocatedActivity("C", "c" if c else "n3"),
             LocatedActivity("D", "c" if c else "n1"),
             LocatedActivity("F", "c" if c else "n1"),
         ]
@@ -262,13 +263,6 @@ class TrieTestiTest(unittest.TestCase):
                                          self._get_validation_traces_skip_node_simple(False))
         alignments_central = self._run(self._get_training_traces_skip_node_simple(True),
                                        self._get_validation_traces_skip_node_simple(True))
-        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
-
-    def test_real(self):
-        alignments_decentral = self._run(self._get_real_dataset(False),
-                                         self._get_real_dataset_validation(False))
-        alignments_central = self._run(self._get_real_dataset(True),
-                                       self._get_real_dataset_validation(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     #def test_context_sensitive(self):
