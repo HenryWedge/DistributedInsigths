@@ -33,8 +33,8 @@ class NetworkNode:
                 result.append(self.observed_events[key])
         return result
 
-    def get_alignment(self, target: LocatedActivity, i) -> AlignmentResponse:
-        response: AlignmentResponse = self.find_best_alignment(target, i)
+    def get_alignment(self, rec_depth, target: LocatedActivity, i) -> AlignmentResponse:
+        response: AlignmentResponse = self.find_best_alignment(rec_depth + 1, target, i)
         if not response:
             return None
 
@@ -48,13 +48,14 @@ class NetworkNode:
     def process_event(self, located_activity: LocatedActivity, i: int) -> Alignment:
         self.i = i
         self.observed_events[i] = located_activity
-        response = self.find_best_alignment(located_activity, i, is_start=True)
+        response = self.find_best_alignment(0, located_activity, i, is_start=True)
         return response.alignment
 
-    def find_best_alignment(self, target: LocatedActivity = None, i=sys.maxsize, is_start=False) -> Any:
+    def find_best_alignment(self, rec_depth, target: LocatedActivity = None, i=sys.maxsize, is_start=False) -> Any:
         all_candidate_alignments: List[AlignmentResponse] = []
+        #print(rec_depth)
         for entry_point in self.model.get_children_containing_label(target):
-            response, model = self._request_external_alignment(entry_point, i)
+            response, model = self._request_external_alignment(rec_depth, entry_point, i)
             last_node = response.last_node
             trace = self._get_relevant_local_trace(i, is_start, last_node, response.timestamp)
             local_alignment = calculate_alignment(trace, model, target)
@@ -77,6 +78,22 @@ class NetworkNode:
             target, best_alignment_response.last_node
         )
 
+    def get_alignment_global(self, i):
+        max_response = None
+        max_target = None
+        for target in self.model.get_leaves():
+            response: AlignmentResponse = self.find_best_alignment(target, i)
+            if not max_response or response.timestamp > max_response.timestamp:
+                max_response = response
+                max_target = target
+
+        return AlignmentResponse(
+            max(self.i, max_response.timestamp),
+            max_response.alignment,
+            max_target,
+            max_response.last_node
+        )
+
     def _add_external_log_moves(self, responses: List[AlignmentResponse], i):
         all_log_moves = []
         response_with_external_log_moves = []
@@ -88,7 +105,7 @@ class NetworkNode:
             response_with_external_log_moves.append(response)
         return response_with_external_log_moves
 
-    def _request_external_alignment(self, entry_point: Trie, i: int) -> tuple[AlignmentResponse, Trie]:
+    def _request_external_alignment(self, rec_depth, entry_point: Trie, i: int) -> tuple[AlignmentResponse, Trie]:
         model = self.model
         if self.node_id == entry_point.location:
             alignment_response = AlignmentResponse(-1, Alignment(), entry_point, None)
@@ -97,7 +114,7 @@ class NetworkNode:
                 alignment_response = self.cache[entry_point]
             else:
                 alignment_response = (
-                    self.network.get_node(entry_point.location).get_alignment(entry_point, i))
+                    self.network.get_node(entry_point.location).get_alignment(rec_depth, entry_point, i))
             model = self.model.get_child(entry_point)
 
         self.cache[entry_point] = alignment_response

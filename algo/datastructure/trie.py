@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any
 
 
 class Trie:
@@ -40,10 +40,22 @@ class Trie:
             if self.get_child(child.label).contains(label)
         ]
 
-    def contains(self, label) -> bool:
+    def contains(self, label, rec_depth=0) -> bool:
         if self.label == label:
             return True
         for child in self.children:
-            if child.contains(label):
+            if rec_depth> 19:
+                print("Stop")
+            if child.contains(label, rec_depth + 1):
                 return True
         return False
+
+    def get_leaves(self) -> List[Any]:
+        if self.is_leaf():
+            return [self.label]
+
+        leaves = []
+        for child in self.children:
+            leaves.extend(child.get_leaves())
+
+        return leaves

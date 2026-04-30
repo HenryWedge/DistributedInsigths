@@ -11,6 +11,9 @@ class Alignment:
         self.elements: List[AlignmentElement] = []
         self.processed_events = 0
 
+    def get_elements(self):
+        [AlignmentElement(element.log.activity, element.model.activity) for element in self.elements]
+
     def increment_processed_events(self):
         self.processed_events += 1
 
@@ -89,9 +92,10 @@ class Alignment:
                 missing_log_moves.append(log_move)
         if not missing_log_moves:
             return deepcopy(self)
+        alignment = deepcopy(self)
         for log_move in missing_log_moves:
-            alignment = self.move_on_log_skip_model(log_move)
-        return deepcopy(alignment)
+            alignment = alignment.move_on_log_skip_model(log_move)
+        return alignment
 
     def __hash__(self):
         return hash(frozenset(self.elements))
