@@ -1,6 +1,6 @@
 import unittest
 
-from algo.context_protocol import ModelTrainer
+from algo.context_protocol import ModelTrainer, ContextProtocolNode
 from algo.network import Network
 from algo.alignment_node import LocatedActivity, NetworkNode, Trie
 from algo.alignments.trie_builder import TrieBuilder
@@ -128,31 +128,34 @@ class TrieTestiTest(unittest.TestCase):
     def _get_real_dataset(self, c: bool):
         event_log_splitter = EventLogSplitter("gt/test/datasets/Sepsis.xes",
                                               location_key="org:group")
-        training = event_log_splitter.get_training_data(1000)
+        training = event_log_splitter.get_training_data(10)
         result = []
 
         for key in training.traces:
             trace = []
+            occurrences = {}
             for event in training.traces[key]:
-                trace.append(LocatedActivity(event.activity, "c" if c else event.location))
-                if len(trace) >= 5:
-                    break
+                trace.append(LocatedActivity(event.activity + "-" +  event.location, "c" if c else event.location))
+                #if len(trace) >= 10:
+                #    break
             result.append(trace)
 
         return result
 
-    def _get_real_dataset_validation(self, c: bool):
-        event_log_splitter = EventLogSplitter("gt/test/datasets/Sepsis.xes",
-                                              location_key="org:group")
-        training = event_log_splitter.get_test_data(1)
+    def _get_real_dataset_validation(self, c: bool, record_index):
+        event_log_splitter = EventLogSplitter(
+            "gt/test/datasets/Sepsis.xes",
+            location_key="org:group"
+        )
+        training = event_log_splitter.get_test_data(record_index)
         result = []
 
         for key in training.traces:
             trace = []
             for event in training.traces[key]:
-                trace.append(LocatedActivity(event.activity, "c" if c else event.location))
-                if len(trace) >= 10:
-                    break
+                trace.append(LocatedActivity(event.activity + "-" +  event.location, "c" if c else event.location))
+                #if len(trace) >= 10:
+                #    break
             result.append(trace)
         return result[0]
 
@@ -220,8 +223,11 @@ class TrieTestiTest(unittest.TestCase):
         network: Network = ModelTrainer().learn(training_trace)
         alignments = []
         for i, located_activity in enumerate(validation_trace):
+            if not network.has_node(located_activity.location):
+                network.add_node(located_activity.location, ContextProtocolNode(located_activity.location, network))
             alignment = network.get_node(located_activity.location).process_activity(located_activity.activity, i)
             alignments.append(alignment)
+            print(located_activity)
             print(alignment)
         return alignments
 
@@ -242,7 +248,7 @@ class TrieTestiTest(unittest.TestCase):
 
     def test_example(self):
         alignments_decentral = self._run2(self._get_training_traces(False), self._get_validation_trace(False))
-        alignments_central = self._run(self._get_training_traces(True), self._get_validation_trace(True))
+        alignments_central = self._run2(self._get_training_traces(True), self._get_validation_trace(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     def test_alternating(self):
@@ -250,7 +256,7 @@ class TrieTestiTest(unittest.TestCase):
             self._get_training_traces_alternating(False),
             self._get_validation_traces_alternating(False)
         )
-        alignments_central = self._run(
+        alignments_central = self._run2(
             self._get_training_traces_alternating(True),
             self._get_validation_traces_alternating(True)
         )
@@ -259,41 +265,45 @@ class TrieTestiTest(unittest.TestCase):
     def test_validation_traces_skip_after_entry_point(self):
         alignments_decentral = self._run2(self._get_training_traces_skip_after_entry_point(False),
                                           self._get_validation_traces_skip_after_entry_point(False))
-        alignments_central = self._run(self._get_training_traces_skip_after_entry_point(True),
+        alignments_central = self._run2(self._get_training_traces_skip_after_entry_point(True),
                                        self._get_validation_traces_skip_after_entry_point(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     def test_validation_traces_skip_node(self):
         alignments_decentral = self._run2(self._get_training_traces_skip_node(False),
                                           self._get_validation_traces_skip_node(False))
-        alignments_central = self._run(self._get_training_traces_skip_node(True),
+        alignments_central = self._run2(self._get_training_traces_skip_node(True),
                                        self._get_validation_traces_skip_node(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     def test_validation_traces_skip_node2(self):
         alignments_decentral = self._run2(self._get_training_traces_skip_node(False),
                                           self._get_validation_traces_skip_node2(False))
-        alignments_central = self._run(self._get_training_traces_skip_node(True),
+        alignments_central = self._run2(self._get_training_traces_skip_node(True),
                                        self._get_validation_traces_skip_node2(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     def test_validation_traces_skip_node_simple(self):
         alignments_decentral = self._run2(self._get_training_traces_skip_node_simple(False),
                                           self._get_validation_traces_skip_node_simple(False))
-        alignments_central = self._run(self._get_training_traces_skip_node_simple(True),
+        alignments_central = self._run2(self._get_training_traces_skip_node_simple(True),
                                        self._get_validation_traces_skip_node_simple(True))
         self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     def test_validation_traces_real(self):
-        alignments_decentral = self._run2(self._get_real_dataset(False),
-                                          self._get_real_dataset_validation(False))
-        alignments_central = self._run2(self._get_real_dataset(True),
-                                       self._get_real_dataset_validation(True))
-        self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+        for i in range (5):
+            alignments_decentral = self._run2(self._get_real_dataset(False),
+                                              self._get_real_dataset_validation(False, i))
+            print("-----")
+            alignments_central = self._run2(self._get_real_dataset(True),
+                                           self._get_real_dataset_validation(True, i))
+            self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
-    # def test_context_sensitive(self):
-    #   alignments_decentral = self._run(self._get_training_traces_context_sensitive(False),
-    #                                    self._get_validation_trace_context_sensitive(False))
-    #   alignments_central = self._run(self._get_training_traces_context_sensitive(True),
-    #                                  self._get_validation_trace_context_sensitive(True))
-    #   self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+    def test_context_sensitive(self):
+      alignments_decentral = self._run2(self._get_training_traces_context_sensitive(False),
+                                       self._get_validation_trace_context_sensitive(False))
+      alignments_central = self._run2(self._get_training_traces_context_sensitive(True),
+                                     self._get_validation_trace_context_sensitive(True))
+      self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+
+    # TODO please consider all activities even though they are no entrypoints

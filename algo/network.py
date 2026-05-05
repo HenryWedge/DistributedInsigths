@@ -5,6 +5,9 @@ class Network[T]:
     def __init__(self):
         self.nodes: Dict[str, T] = {}
 
+    def has_node(self, node_id: str):
+        return node_id in self.nodes
+
     def add_node(self, node_id, node):
         self.nodes[node_id] = node
 

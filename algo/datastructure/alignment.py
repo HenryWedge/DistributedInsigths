@@ -88,7 +88,7 @@ class Alignment:
     def append_missing_log_moves(self, log_moves):
         missing_log_moves = []
         for log_move in log_moves:
-            if log_move not in self.get_all_log_moves():
+            if log_move not in [lm.activity for lm in self.get_all_log_moves()]:
                 missing_log_moves.append(log_move)
         if not missing_log_moves:
             return deepcopy(self)

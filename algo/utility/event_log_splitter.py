@@ -30,8 +30,8 @@ class EventLogSplitter:
     def get_training_data(self, number_of_records: int):
         return self.log.filter_case_ids(self.case_ids[:number_of_records])
 
-    def get_test_data(self, number_of_records: int = 1):
-        return self.log.filter_case_ids(self.case_ids[20])
+    def get_test_data(self, record_index: int = 1):
+        return self.log.filter_case_ids(self.case_ids[record_index])
 
     def get_case(self, case_id: str):
         return self.log.filter_case_ids([case_id])

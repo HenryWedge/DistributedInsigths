@@ -51,20 +51,23 @@ class ContextProtocolNode:
     def get_insight(self, context, i):
         score = self.insight(context.head().activity, i)
         if not context.is_start() and context.body().elements:
-            score += self.network.get_node(context.body().location()).get_insight(context.body(), i-1)
+            score += self.network.get_node(context.body().location()).get_insight(context.body(), i - 1)
         return score
 
     def _get_events(self, min_i=-1, max_i=sys.maxsize):
         filtered = {k: v for k, v in self.observed_events.items() if min_i < k < max_i}
         return [value for key, value in sorted(filtered.items())]
 
+    def get_all_activities(self):
+        return self._get_events()
+
     def insight(self, activity: str, i):
         alignment = Alignment()
         if activity in self._get_events() and activity in self.entry_points:
-            alignment=alignment.sync_move(LocatedActivity(activity, ""))
+            alignment = alignment.sync_move(LocatedActivity(activity, ""))
         elif activity in self.entry_points:
-            alignment=alignment.move_on_model_skip_log(LocatedActivity(activity, ""))
-        for event in self._get_events(min_i=i-1):
+            alignment = alignment.move_on_model_skip_log(LocatedActivity(activity, ""))
+        for event in self._get_events(min_i=i - 1):
             if event not in self.entry_points:
                 alignment = alignment.move_on_log_skip_model(LocatedActivity(event, ""))
         return alignment
@@ -80,26 +83,28 @@ class ContextProtocolNode:
                     break
                 else:
                     external_alignments.append(self.network.get_node(ep.location()).get_insight(ep, i))
-
             all_log_moves = set()
             for node in self.network.get_all_nodes(""):
-                for lg_mv in node.latest_alignment.get_all_log_moves():
+                for lg_mv in node.get_all_activities():
                     all_log_moves.add(lg_mv)
-
             min_alignment = None
+
             if external_alignments:
                 for align in external_alignments:
+                    align += alignment
                     align = align.append_missing_log_moves(all_log_moves)
                     if not min_alignment or min_alignment > align:
                         min_alignment = align
-            alignment += min_alignment
+            else:
+                min_alignment = alignment
         else:
             latest_alignments = []
             for node in self.network.get_all_nodes(""):
                 latest_alignments.append(node.latest_alignment)
             alignment += max(latest_alignments)
-        self.latest_alignment = alignment
-        return alignment
+            min_alignment = alignment
+        self.latest_alignment = min_alignment
+        return self.latest_alignment
 
 
 class ModelTrainer:
@@ -115,7 +120,7 @@ class ModelTrainer:
                 if not history:
                     if not current_event.activity in node.entry_points:
                         node.entry_points[current_event.activity] = [Context(["<start>"])]
-                    #if current_event not in node.entry_points:
+                    # if current_event not in node.entry_points:
                     #    node.add_entry_point(current_event.activity, new_context)
                 else:
                     new_context = Context(deepcopy(history))
@@ -137,13 +142,13 @@ if __name__ == '__main__':
             LocatedActivity("H", "n2"),
             LocatedActivity("G", "n4")
         ],
-        [
-            LocatedActivity("A", "n1"),
-            LocatedActivity("C", "n1"),
-            LocatedActivity("D", "n3"),
-            LocatedActivity("G", "n4")
-        ]]
-        #[
+            [
+                LocatedActivity("A", "n1"),
+                LocatedActivity("C", "n1"),
+                LocatedActivity("D", "n3"),
+                LocatedActivity("G", "n4")
+            ]]
+        # [
         #    [
         #        LocatedActivity("X", "n1"),
         #        LocatedActivity("A", "n1"),
@@ -156,23 +161,21 @@ if __name__ == '__main__':
         #        LocatedActivity("C", "n2"),
         #        LocatedActivity("D", "n3"),
         #    ]
-        #]
+        # ]
     )
 
-    #print(network.get_node("n1").process_activity("X", 0))
-    #print("---")
-    #print(network.get_node("n1").process_activity("B", 1))
-    #print("---")
-    #print(network.get_node("n1").process_activity("F", 2))
+    # print(network.get_node("n1").process_activity("X", 0))
+    # print("---")
+    # print(network.get_node("n1").process_activity("B", 1))
+    # print("---")
+    # print(network.get_node("n1").process_activity("F", 2))
     ##print("---")
     ##print(network.get_node("n2").process_activity("C", 3))
-    #print("---")
-    #print(network.get_node("n3").process_activity("D", 4))
+    # print("---")
+    # print(network.get_node("n3").process_activity("D", 4))
 
     print(network.get_node("n1").process_activity("A", 0))
     print(network.get_node("n1").process_activity("B", 1))
     print(network.get_node("n3").process_activity("D", 2))
     print(network.get_node("n2").process_activity("F", 3))
     print(network.get_node("n4").process_activity("G", 4))
-
-
