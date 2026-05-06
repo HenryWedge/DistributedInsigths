@@ -55,7 +55,7 @@ class ContextProtocolNode:
         return score
 
     def _get_events(self, min_i=-1, max_i=sys.maxsize):
-        filtered = {k: v for k, v in self.observed_events.items() if min_i < k < max_i}
+        filtered = {k: v for k, v in self.observed_events.items() if min_i < k <= max_i}
         return [value for key, value in sorted(filtered.items())]
 
     def get_all_activities(self):
@@ -63,11 +63,11 @@ class ContextProtocolNode:
 
     def insight(self, activity: str, i):
         alignment = Alignment()
-        if activity in self._get_events() and activity in self.entry_points:
+        if activity in self._get_events(max_i=i) and activity in self.entry_points:
             alignment = alignment.sync_move(LocatedActivity(activity, ""))
         elif activity in self.entry_points:
             alignment = alignment.move_on_model_skip_log(LocatedActivity(activity, ""))
-        for event in self._get_events(min_i=i - 1):
+        for event in self._get_events(min_i=i-1,max_i=i):
             if event not in self.entry_points:
                 alignment = alignment.move_on_log_skip_model(LocatedActivity(event, ""))
         return alignment
@@ -75,14 +75,14 @@ class ContextProtocolNode:
     def process_activity(self, activity, i):
         alignment = Alignment()
         self.observed_events[i] = activity
-        alignment += self.insight(activity, i)
+        alignment += self.insight(activity, i+1)
         external_alignments = []
         if activity in self.entry_points:
             for ep in self.entry_points[activity]:
                 if ep.is_start():
                     break
                 else:
-                    external_alignments.append(self.network.get_node(ep.location()).get_insight(ep, i))
+                    external_alignments.append(self.network.get_node(ep.location()).get_insight(ep, i+1))
             all_log_moves = set()
             for node in self.network.get_all_nodes(""):
                 for lg_mv in node.get_all_activities():
@@ -91,7 +91,7 @@ class ContextProtocolNode:
 
             if external_alignments:
                 for align in external_alignments:
-                    align += alignment
+                    align = alignment + align
                     align = align.append_missing_log_moves(all_log_moves)
                     if not min_alignment or min_alignment > align:
                         min_alignment = align
@@ -101,7 +101,7 @@ class ContextProtocolNode:
             latest_alignments = []
             for node in self.network.get_all_nodes(""):
                 latest_alignments.append(node.latest_alignment)
-            alignment += max(latest_alignments)
+            alignment = max(latest_alignments) + alignment
             min_alignment = alignment
         self.latest_alignment = min_alignment
         return self.latest_alignment
