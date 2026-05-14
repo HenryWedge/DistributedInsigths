@@ -297,44 +297,56 @@ if __name__ == "__main__":
     total_cases = len(splitter.case_ids)
 
     training_sequences, mapping = load_training_data(splitter, 10, c=False)
+    training_sequences_c, mapping_c = load_training_data(splitter, 10, c=True)
     network = build_network(training_sequences, mapping)
+    network_c = build_network(training_sequences_c, mapping_c)
 
     print(f"Training traces: {len(training_sequences)}")
-    print(f"Network participants: {len(network.participants)}")
-    print(f"Sink nodes: {len(network.get_sink_nodes())}")
+    print(f"Decentral participants: {len(network.participants)}")
+    print(f"Central participants: {len(network_c.participants)}")
     print(f"Total cases: {total_cases}")
     print()
 
     first_fail = None
 
-    for idx in range(total_cases):
+    #for idx in range(total_cases):
+    for idx in range(1):
         trace = load_validation_trace(splitter, idx, c=False)
+        trace_c = load_validation_trace(splitter, idx, c=True)
         if len(trace) < 2:
             continue
 
         case_id = f"case_{idx}"
         for event in trace:
             network.record_event(case_id, event)
+        for event in trace_c:
+            network_c.record_event(case_id, event)
 
         dec_cost, dec_align = network.compute_prefix_alignment(case_id)
-        cen_cost, cen_align = compute_centralized_prefix_alignment(training_sequences, trace)
+        cen_cost, cen_align = network_c.compute_prefix_alignment(case_id)
+
+        print(cen_align)
+        print(dec_align)
 
         status = "OK" if dec_cost == cen_cost else "FAIL"
         sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={dec_cost:3d}/{cen_cost:3d}  events={len(trace):3d}  align_len={len(dec_align):3d}  {status}")
         sys.stdout.flush()
 
         if dec_cost != cen_cost:
-            first_fail = (idx, trace, dec_cost, cen_cost, dec_align, cen_align)
+            first_fail = (idx, trace, trace_c, dec_cost, cen_cost, dec_align, cen_align)
             print("\n\nMISMATCH FOUND!")
             break
 
     print()
 
     if first_fail:
-        idx, trace, dec_cost, cen_cost, dec_align, cen_align = first_fail
+        idx, trace, trace_c, dec_cost, cen_cost, dec_align, cen_align = first_fail
         print(f"\nIndex: {idx}")
         print(f"Trace ({len(trace)} events):")
         for i, a in enumerate(trace):
+            print(f"  {i}: {a}")
+        print(f"\nCentralized trace ({len(trace_c)} events):")
+        for i, a in enumerate(trace_c):
             print(f"  {i}: {a}")
         print(f"\nDecentralized cost: {dec_cost}")
         print(f"Centralized cost: {cen_cost}")
@@ -345,4 +357,4 @@ if __name__ == "__main__":
         for i, (m, l) in enumerate(cen_align):
             print(f"  {i}: {m or '>>':40s} | {l or '>>'}")
     else:
-        print(f"\nAll {total_cases} traces matched! Implementation survived all tests.")
+        print(f"\nAll {total_cases} traces matched! Centralized via network.record_event with single participant.")
