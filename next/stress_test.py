@@ -56,20 +56,20 @@ class Participant:
         best_align: Alignment = []
 
         for prev_hash, activity in local_transitions:
-            cost, align = network.compute_min_cost_with_alignment(prev_hash, log_idx, events)
+            cost, align = network.compute_min_cost_with_alignment(prev_hash, log_idx, events, caller_id=self.id)
             cost += MODEL_COST
             if cost < best_cost:
                 best_cost = cost
                 best_align = align + [(activity, None)]
 
             if log_idx >= 0 and events[log_idx] == activity:
-                cost, align = network.compute_min_cost_with_alignment(prev_hash, log_idx - 1, events)
+                cost, align = network.compute_min_cost_with_alignment(prev_hash, log_idx - 1, events, caller_id=self.id)
                 if cost < best_cost:
                     best_cost = cost
                     best_align = align + [(activity, activity)]
 
         if log_idx >= 0:
-            cost, align = network.compute_min_cost_with_alignment(target_hash, log_idx - 1, events)
+            cost, align = network.compute_min_cost_with_alignment(target_hash, log_idx - 1, events, caller_id=self.id)
             cost += LOG_COST
             if cost < best_cost:
                 best_cost = cost
@@ -89,6 +89,15 @@ class Network:
         self.event_stream: Dict[str, List[str]] = {}
         self.participants: Dict[str, Participant] = {}
         self.hash_owner: Dict[str, str] = {}
+        self.route_calls = 0
+        self.remote_calls = 0
+
+    def reset_stats(self):
+        self.route_calls = 0
+        self.remote_calls = 0
+
+    def get_total_states(self) -> int:
+        return sum(len(p._memo) for p in self.participants.values())
 
     def register_participant(self, participant: Participant):
         self.participants[participant.id] = participant
@@ -128,13 +137,18 @@ class Network:
         return nodes
 
     def compute_min_cost_with_alignment(self, target_hash: str, log_idx: int,
-                                        events: List[str]) -> Tuple[int, Alignment]:
+                                        events: List[str],
+                                        caller_id: Optional[str] = None) -> Tuple[int, Alignment]:
+        self.route_calls += 1
         if target_hash == START_HASH:
             return log_idx + 1, alignment_entries_for_start(log_idx, events)
 
         owner = self.hash_owner.get(target_hash)
         if owner is None:
             return log_idx + 1, alignment_entries_for_start(log_idx, events)
+
+        if caller_id is not None and owner != caller_id:
+            self.remote_calls += 1
 
         return self.participants[owner].min_cost_with_alignment(
             target_hash, log_idx, events, self)
@@ -309,27 +323,40 @@ if __name__ == "__main__":
 
     first_fail = None
 
-    #for idx in range(total_cases):
-    for idx in range(1):
+    total_route = 0
+    total_remote = 0
+    total_states = 0
+    total_route_c = 0
+    total_states_c = 0
+    n_processed = 0
+
+    for idx in range(total_cases):
         trace = load_validation_trace(splitter, idx, c=False)
         trace_c = load_validation_trace(splitter, idx, c=True)
         if len(trace) < 2:
             continue
 
+        n_processed += 1
         case_id = f"case_{idx}"
         for event in trace:
             network.record_event(case_id, event)
         for event in trace_c:
             network_c.record_event(case_id, event)
 
+        network.reset_stats()
+        network_c.reset_stats()
+
         dec_cost, dec_align = network.compute_prefix_alignment(case_id)
         cen_cost, cen_align = network_c.compute_prefix_alignment(case_id)
 
-        print(cen_align)
-        print(dec_align)
+        total_route += network.route_calls
+        total_remote += network.remote_calls
+        total_states += network.get_total_states()
+        total_route_c += network_c.route_calls
+        total_states_c += network_c.get_total_states()
 
         status = "OK" if dec_cost == cen_cost else "FAIL"
-        sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={dec_cost:3d}/{cen_cost:3d}  events={len(trace):3d}  align_len={len(dec_align):3d}  {status}")
+        sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={dec_cost:3d}/{cen_cost:3d}  events={len(trace):3d}  {status}")
         sys.stdout.flush()
 
         if dec_cost != cen_cost:
@@ -357,4 +384,23 @@ if __name__ == "__main__":
         for i, (m, l) in enumerate(cen_align):
             print(f"  {i}: {m or '>>':40s} | {l or '>>'}")
     else:
-        print(f"\nAll {total_cases} traces matched! Centralized via network.record_event with single participant.")
+        avg_route = total_route / n_processed
+        avg_remote = total_remote / n_processed
+        avg_states = total_states / n_processed
+        avg_route_c = total_route_c / n_processed
+        avg_states_c = total_states_c / n_processed
+        sep = "=" * 70
+        dash = "-" * 40
+        dash2 = "-" * 12
+        print(f"\n{sep}")
+        print(f"  Results: {n_processed} traces, all matched!")
+        print(f"{sep}")
+        print(f"  {'Metric':<40s} {'Decentral':>12s} {'Central':>12s}")
+        print(f"  {dash} {dash2} {dash2}")
+        print(f"  {'Avg network lookups (route_calls)':<40s} {avg_route:>12.1f} {avg_route_c:>12.1f}")
+        print(f"  {'Avg cross-participant calls (remote)':<40s} {avg_remote:>12.1f} {'N/A':>12s}")
+        print(f"  {'Avg states explored (memo entries)':<40s} {avg_states:>12.1f} {avg_states_c:>12.1f}")
+        print(f"  {'Total network lookups':<40s} {total_route:>12d} {total_route_c:>12d}")
+        print(f"  {'Total cross-participant calls':<40s} {total_remote:>12d} {'N/A':>12s}")
+        print(f"  {'Total states explored':<40s} {total_states:>12d} {total_states_c:>12d}")
+        print(f"{sep}")
