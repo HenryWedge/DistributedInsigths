@@ -1,6 +1,8 @@
 import unittest
 
+from algo.alignments.alignment_calculator import calculate_alignment
 from algo.context_protocol import ModelTrainer, ContextProtocolNode
+from algo.datastructure.alignment import Alignment
 from algo.network import Network
 from algo.alignment_node import LocatedActivity, NetworkNode, Trie
 from algo.alignments.trie_builder import TrieBuilder
@@ -201,6 +203,24 @@ class TrieTestiTest(unittest.TestCase):
             LocatedActivity("F", "c" if c else "n1"),
         ]
 
+    def _run_with_calculate_alignment(self, training_traces, validation_trace):
+        trie = Trie()
+        builder = TrieBuilder(trie)
+        for trace in training_traces:
+            for act in trace:
+                builder.insert(act)
+            builder.reset()
+
+        alignments = []
+        for i in range(len(validation_trace)):
+            partial_trace = validation_trace[:i + 1]
+            alignment = calculate_alignment(partial_trace, trie)
+            if alignment is None:
+                alignment = Alignment()
+            alignments.append(alignment)
+            print(alignment)
+        return alignments
+
     def _run(self, training_trace, validation_trace):
         trie_builders = {}
         last_event = None
@@ -306,6 +326,20 @@ class TrieTestiTest(unittest.TestCase):
             print("-----")
             alignments_central = self._run2(self._get_real_dataset(True),
                                            self._get_real_dataset_validation(True, i+1))
+            self._assert_equality_of_alignments(alignments_decentral, alignments_central)
+
+    def test_calculate_alignment_real(self):
+        for i in range(1):
+            alignments_decentral = self._run2(
+                self._get_real_dataset(False),
+                self._get_real_dataset_validation(False, i + 1)
+            )
+            print("-----")
+            alignments_central = self._run_with_calculate_alignment(
+                self._get_real_dataset(True),
+                self._get_real_dataset_validation(True, i + 1)
+            )
+            print("Comparing decentral (calculate_alignment) with central (_run2)")
             self._assert_equality_of_alignments(alignments_decentral, alignments_central)
 
     def test_context_sensitive(self):
