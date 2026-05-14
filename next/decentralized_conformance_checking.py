@@ -56,20 +56,20 @@ class Participant:
         best_align: Alignment = []
 
         for prev_hash, activity in local_transitions:
-            cost, align = network._route_min_cost(prev_hash, log_idx, events)
+            cost, align = network.route_min_cost(prev_hash, log_idx, events)
             cost += MODEL_COST
             if cost < best_cost:
                 best_cost = cost
                 best_align = align + [(activity, None)]
 
             if log_idx >= 0 and events[log_idx] == activity:
-                cost, align = network._route_min_cost(prev_hash, log_idx - 1, events)
+                cost, align = network.route_min_cost(prev_hash, log_idx - 1, events)
                 if cost < best_cost:
                     best_cost = cost
                     best_align = align + [(activity, activity)]
 
         if log_idx >= 0:
-            cost, align = network._route_min_cost(target_hash, log_idx - 1, events)
+            cost, align = network.route_min_cost(target_hash, log_idx - 1, events)
             cost += LOG_COST
             if cost < best_cost:
                 best_cost = cost
@@ -96,7 +96,7 @@ class Participant:
         best_align: Alignment = []
 
         for node in all_nodes:
-            cost, align = network._route_min_cost(node, log_idx, events)
+            cost, align = network.route_min_cost(node, log_idx, events)
             if cost < best_cost:
                 best_cost = cost
                 best_align = align
@@ -123,7 +123,7 @@ class Network:
     def get_events(self, case_id: str) -> List[str]:
         return self.event_stream.get(case_id, [])
 
-    def _route_min_cost(self, target_hash: str, log_idx: int,
+    def route_min_cost(self, target_hash: str, log_idx: int,
                         events: List[str]) -> Tuple[int, Alignment]:
         if target_hash == START_HASH:
             return log_idx + 1, alignment_entries_for_start(log_idx, events)
