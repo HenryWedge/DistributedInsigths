@@ -5,7 +5,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import hashlib
-from typing import Dict, List, Tuple, Set, Optional
+from typing import Dict, List, Tuple, Optional
 
 from algo.utility.event_log_splitter import EventLogSplitter
 
@@ -15,6 +15,17 @@ MODEL_COST = 1
 
 def compute_hash(prev_hash: str, activity: str) -> str:
     return hashlib.sha256((prev_hash + activity).encode()).hexdigest()
+
+class Event:
+    def __init__(self, activity: str, case_id: str, location: str, timestamp):
+        self.activity = activity
+        self.case_id = case_id
+        self.location = location
+        self.timestamp = timestamp
+
+    def __str__(self) -> str:
+        return self.activity
+
 
 class Transition:
     def __init__(self, prev_hash: str, activity: str):
@@ -84,6 +95,14 @@ class Participant:
 
     def get_transitions_by_entrypoint(self, entrypoint: str) -> List[Transition]:
         return [t for t in self.transitions if t.entrypoint == entrypoint]
+
+    def compute_best_alignment(self, log_index: int, case_id: str) -> Alignment:
+        best_align: Optional[Alignment] = None
+        for transition in self.transitions:
+            align = self.calculate_alignment(transition.entrypoint, log_index, case_id)
+            if not best_align or align.cost < best_align.cost:
+                best_align = align
+        return best_align if best_align else Alignment([(None, None) for _ in range(log_index + 1)])
 
     def request_predecessor_alignment(
         self,
@@ -165,15 +184,6 @@ class Network:
         for transition in participant.transitions:
             self.entrypoint_participant_map[transition.entrypoint] = participant.id
 
-    def get_all_nodes(self) -> Set[str]:
-        nodes = {START}
-        entrypoints = set()
-        for p in self.participants.values():
-            for t in p.transitions:
-                entrypoints.add(t.entrypoint)
-        nodes.update(entrypoints)
-        return nodes
-
 
 class Executor:
     def __init__(self, network: Network, participant_mapping: Dict[str, str]):
@@ -181,50 +191,46 @@ class Executor:
         self.participant_mapping = participant_mapping
         self.case_event_count: Dict[str, int] = {}
 
-    def record_event(self, case_id: str, activity: str) -> Alignment:
-        count = self.case_event_count.get(case_id, 0) + 1
-        self.case_event_count[case_id] = count
+    def record_event(self, event: Event) -> Alignment:
+        count = self.case_event_count.get(event.case_id, 0) + 1
+        self.case_event_count[event.case_id] = count
 
-        pid = self.participant_mapping.get(activity)
+        pid = self.participant_mapping.get(event.activity)
+
         if pid and pid in self.network.participants:
             p = self.network.participants[pid]
-            if case_id not in p.event_stream:
-                p.event_stream[case_id] = []
-            p.event_stream[case_id].append(activity)
+            if event.case_id not in p.event_stream:
+                p.event_stream[event.case_id] = []
+            p.event_stream[event.case_id].append(event.activity)
 
         log_index = count - 1
-        pid = self.participant_mapping.get(activity)
+        pid = self.participant_mapping.get(event.activity)
+
         if pid and pid in self.network.participants:
-            self.network.participants[pid]._store_activity_at(case_id, log_index, activity)
+            self.network.participants[pid]._store_activity_at(event.case_id, log_index, event.activity)
 
-        all_nodes = self.network.get_all_nodes()
         best_align: Optional[Alignment] = None
-        for node in all_nodes:
-            owner = self.network.entrypoint_participant_map.get(node)
-            if owner is None:
-                align = Alignment([(None, None) for _ in range(log_index + 1)])
-            else:
-                align = self.network.participants[owner].calculate_alignment(node, log_index, case_id)
-
+        for participant in self.network.participants.values():
+            align = participant.compute_best_alignment(log_index, event.case_id)
             if not best_align or align.cost < best_align.cost:
                 best_align = align
 
-        return best_align
+        return best_align if best_align else Alignment([(None, None) for _ in range(log_index + 1)])
 
 
 def build_network(
-    sequences: List[List[str]],
+    sequences: List[List[Event]],
     participant_mapping: Dict[str, str]
 ):
     network = Network()
 
     for seq in sequences:
         prev = START
-        for activity in seq:
-            pid = participant_mapping[activity]
+        for event in seq:
+            pid = participant_mapping[event.activity]
             if pid not in network.participants:
                 network.register_participant(Participant(pid))
-            curr = network.participants[pid].add_transition(prev, activity)
+            curr = network.participants[pid].add_transition(prev, event.activity)
             if curr not in network.entrypoint_participant_map:
                 network.entrypoint_participant_map[curr] = pid
             prev = curr
@@ -236,11 +242,11 @@ def build_network(
 def load_training_data(splitter: EventLogSplitter, n: int, c: bool):
     training = splitter.get_training_data(n)
 
-    sequences: List[List[str]] = []
+    sequences: List[List[Event]] = []
     mapping: Dict[str, str] = {}
 
     for case_id in training.traces:
-        trace = []
+        trace: List[Event] = []
         occurrences: Dict[str, int] = {}
         for event in training.traces[case_id]:
             if event.activity not in occurrences:
@@ -249,7 +255,7 @@ def load_training_data(splitter: EventLogSplitter, n: int, c: bool):
                 occurrences[event.activity] += 1
             activity_str = f"{event.activity}-{event.location}{occurrences[event.activity]}"
             loc = "c" if c else event.location
-            trace.append(activity_str)
+            trace.append(Event(activity_str, case_id, loc, event.time))
             mapping[activity_str] = loc
         sequences.append(trace)
 
@@ -260,7 +266,7 @@ def load_validation_trace(splitter: EventLogSplitter, record_index: int, c: bool
     test_data = splitter.get_test_data(record_index)
 
     for case_id in test_data.traces:
-        trace = []
+        trace: List[Event] = []
         occurrences: Dict[str, int] = {}
         for event in test_data.traces[case_id]:
             if event.activity not in occurrences:
@@ -268,7 +274,8 @@ def load_validation_trace(splitter: EventLogSplitter, record_index: int, c: bool
             else:
                 occurrences[event.activity] += 1
             activity_str = f"{event.activity}-{event.location}{occurrences[event.activity]}"
-            trace.append(activity_str)
+            loc = "c" if c else event.location
+            trace.append(Event(activity_str, case_id, loc, event.time))
         return trace
 
     return []
@@ -299,9 +306,9 @@ if __name__ == "__main__":
     n_processed = 0
 
     for idx in range(total_cases):
-        trace = load_validation_trace(splitter, idx, c=False)
-        trace_c = load_validation_trace(splitter, idx, c=True)
-        if len(trace) < 2:
+        trace_events = load_validation_trace(splitter, idx, c=False)
+        trace_events_c = load_validation_trace(splitter, idx, c=True)
+        if len(trace_events) < 2:
             continue
 
         n_processed += 1
@@ -311,9 +318,11 @@ if __name__ == "__main__":
         network_c.reset_stats()
 
         case_fail = None
-        for ei in range(len(trace)):
-            dec_align = executor.record_event(case_id, trace[ei])
-            cen_align = executor_c.record_event(case_id, trace_c[ei])
+        for ei in range(len(trace_events)):
+            trace_events[ei].case_id = case_id
+            trace_events_c[ei].case_id = case_id
+            dec_align = executor.record_event(trace_events[ei])
+            cen_align = executor_c.record_event(trace_events_c[ei])
 
             if dec_align.cost != cen_align.cost:
                 case_fail = (ei, dec_align, cen_align)
@@ -327,12 +336,12 @@ if __name__ == "__main__":
 
         final_cost = dec_align.cost
         status = "OK" if case_fail is None else "FAIL"
-        sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={final_cost:3d}  events={len(trace):3d}  {status}")
+        sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={final_cost:3d}  events={len(trace_events):3d}  {status}")
         sys.stdout.flush()
 
         if case_fail is not None:
             ei, dec_align, cen_align = case_fail
-            first_fail = (idx, trace[:ei + 1], trace_c[:ei + 1], dec_align, cen_align)
+            first_fail = (idx, trace_events[:ei + 1], trace_events_c[:ei + 1], dec_align, cen_align)
             print("\n\nMISMATCH FOUND!")
             break
 
