@@ -13,7 +13,6 @@ START = "START"
 LOG_COST = 1
 MODEL_COST = 1
 
-
 def compute_hash(prev_hash: str, activity: str) -> str:
     return hashlib.sha256((prev_hash + activity).encode()).hexdigest()
 
@@ -71,6 +70,7 @@ class Participant:
         self.id = participant_id
         self.transitions: List[Transition] = []
         self.cache: Dict[Tuple[str, int], Alignment] = {}
+        self.network: Optional['Network'] = None
 
     def add_transition(self, entrypoint: str, activity: str) -> str:
         transition = Transition(entrypoint, activity)
@@ -80,12 +80,33 @@ class Participant:
     def get_transitions_by_entrypoint(self, entrypoint: str) -> List[Transition]:
         return [t for t in self.transitions if t.entrypoint == entrypoint]
 
+    def request_predecessor_alignment(
+        self,
+        entrypoint: str,
+        log_index: int,
+        events: List[str],
+    ) -> Alignment:
+        assert self.network is not None
+        self.network.route_calls += 1
+        if entrypoint == START:
+            return Alignment.from_log_moves(events, log_index)
+
+        owner = self.network.entrypoint_participant_map.get(entrypoint)
+        if owner is None:
+            return Alignment.from_log_moves(events, log_index)
+
+        if owner != self.id:
+            self.network.remote_calls += 1
+
+        return self.network.participants[owner].calculate_alignment(
+            entrypoint, log_index, events
+        )
+
     def calculate_alignment(
         self,
         entrypoint: str,
         log_index: int,
         events: List[str],
-        network: 'Network'
     ) -> Alignment:
 
         if entrypoint == START:
@@ -100,19 +121,19 @@ class Participant:
         best_align: Optional[Alignment] = None
 
         for t in local_transitions:
-            align = network.compute_min_cost_with_alignment(t.prev_hash, log_index, events, caller_id=self.id)
+            align = self.request_predecessor_alignment(t.prev_hash, log_index, events)
             candidate = align.add_model_move(t.activity)
             if not best_align or candidate.cost < best_align.cost:
                 best_align = candidate
 
             if log_index >= 0 and events[log_index] == t.activity:
-                align = network.compute_min_cost_with_alignment(t.prev_hash, log_index - 1, events, caller_id=self.id)
+                align = self.request_predecessor_alignment(t.prev_hash, log_index - 1, events)
                 candidate = align.add_sync_move(t.activity)
                 if not best_align or candidate.cost < best_align.cost:
                     best_align = candidate
 
         if log_index >= 0:
-            align = network.compute_min_cost_with_alignment(entrypoint, log_index - 1, events, caller_id=self.id)
+            align = self.request_predecessor_alignment(entrypoint, log_index - 1, events)
             candidate = align.add_log_move(events[log_index])
             if not best_align or candidate.cost < best_align.cost:
                 best_align = candidate
@@ -141,6 +162,7 @@ class Network:
 
     def register_participant(self, participant: Participant):
         self.participants[participant.id] = participant
+        participant.network = self
         for transition in participant.transitions:
             self.entrypoint_participant_map[transition.entrypoint] = participant.id
 
@@ -181,7 +203,6 @@ class Network:
         entrypoint: str,
         log_index: int,
         events: List[str],
-        caller_id: Optional[str] = None
     ) -> Alignment:
         self.route_calls += 1
         if entrypoint == START:
@@ -191,11 +212,8 @@ class Network:
         if owner is None:
             return Alignment.from_log_moves(events, log_index)
 
-        if caller_id is not None and owner != caller_id:
-            self.remote_calls += 1
-
         return self.participants[owner].calculate_alignment(
-            entrypoint, log_index, events, self)
+            entrypoint, log_index, events)
 
     def compute_prefix_alignment(self, case_id: str) -> Alignment:
         events = self.get_events(case_id)
