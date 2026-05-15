@@ -79,12 +79,12 @@ class Alignment:
 
 
 class Participant:
-    def __init__(self, participant_id: str):
+    def __init__(self, participant_id: str, network: 'Network'):
         self.id = participant_id
         self.transitions: List[Transition] = []
         self.cache: Dict[Tuple[str, int], Alignment] = {}
         self.decision_cache: Dict[Tuple[str, int], Tuple[int, int, str, int]] = {}
-        self.network: Optional['Network'] = None
+        self.network: 'Network' = network
         self.event_stream: Dict[str, List[str]] = {}
         self._case_log_activities: Dict[str, Dict[int, str]] = {}
 
@@ -265,7 +265,6 @@ class Network:
     def register_participant(self, participant: Participant):
         self.participants[participant.id] = participant
         participant.network = self
-
         for transition in participant.transitions:
             self.entrypoint_participant_map[transition.entrypoint] = participant.id
 
@@ -312,14 +311,14 @@ def build_network(
         for event in seq:
             participant_id = participant_mapping[event.activity]
             if participant_id not in network.participants:
-                network.register_participant(Participant(participant_id))
+                network.register_participant(Participant(participant_id, network))
             curr = network.participants[participant_id].add_transition(prev, event.activity, participant_id)
             if curr not in network.entrypoint_participant_map:
                 network.entrypoint_participant_map[curr] = participant_id
             prev = curr
 
     executor = Executor(network, participant_mapping)
-    return network, executor
+    return executor
 
 
 def load_training_data(splitter: EventLogSplitter, n: int, c: bool):
@@ -370,12 +369,12 @@ if __name__ == "__main__":
 
     training_sequences, mapping = load_training_data(splitter, 10, c=False)
     training_sequences_c, mapping_c = load_training_data(splitter, 10, c=True)
-    network, executor = build_network(training_sequences, mapping)
-    network_c, executor_c = build_network(training_sequences_c, mapping_c)
+    executor = build_network(training_sequences, mapping)
+    executor_c = build_network(training_sequences_c, mapping_c)
 
     print(f"Training traces: {len(training_sequences)}")
-    print(f"Decentral participants: {len(network.participants)}")
-    print(f"Central participants: {len(network_c.participants)}")
+    print(f"Decentral participants: {len(executor.network.participants)}")
+    print(f"Central participants: {len(executor_c.network.participants)}")
     print(f"Total cases: {total_cases}")
     print()
 
@@ -396,6 +395,8 @@ if __name__ == "__main__":
 
         n_processed += 1
         case_id = f"case_{idx}"
+        network = executor.network
+        network_c = executor_c.network
 
         network.reset_stats()
         network_c.reset_stats()
