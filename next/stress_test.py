@@ -68,6 +68,15 @@ class Participant:
         self.cache: Dict[Tuple[str, int], Alignment] = {}
         self.network: Optional['Network'] = None
         self.event_stream: Dict[str, List[str]] = {}
+        self._case_log_activities: Dict[str, Dict[int, str]] = {}
+
+    def _store_activity_at(self, case_id: str, log_index: int, activity: str):
+        if case_id not in self._case_log_activities:
+            self._case_log_activities[case_id] = {}
+        self._case_log_activities[case_id][log_index] = activity
+
+    def _get_activity_at(self, case_id: str, log_index: int) -> Optional[str]:
+        return self._case_log_activities.get(case_id, {}).get(log_index)
 
     def add_transition(self, entrypoint: str, activity: str) -> str:
         transition = Transition(entrypoint, activity)
@@ -81,7 +90,6 @@ class Participant:
         self,
         entrypoint: str,
         log_index: int,
-        activity: Optional[str],
         case_id: str
     ) -> Alignment:
 
@@ -97,18 +105,19 @@ class Participant:
             self.network.remote_calls += 1
 
         return self.network.participants[owner].calculate_alignment(
-            entrypoint, log_index, activity, case_id
+            entrypoint, log_index, case_id
         )
 
     def calculate_alignment(
         self,
         entrypoint: str,
         log_index: int,
-        activity: Optional[str],
         case_id: str
     ) -> Alignment:
         if entrypoint == START:
             return Alignment([(None, "?") for _ in range(log_index + 1)])
+
+        activity = self._get_activity_at(case_id, log_index)
 
         key = (entrypoint, log_index)
         if key in self.cache:
@@ -120,20 +129,21 @@ class Participant:
         best_align: Optional[Alignment] = None
 
         for t in local_transitions:
-            align = self.request_predecessor_alignment(t.prev_hash, log_index, activity, case_id)
+            align = self.request_predecessor_alignment(t.prev_hash, log_index, case_id)
             candidate = align.add_model_move(t.activity)
             if not best_align or candidate.cost < best_align.cost:
                 best_align = candidate
 
-            if log_index >= 0 and activity is not None and activity in my_events and activity == t.activity:
-                align = self.request_predecessor_alignment(t.prev_hash, log_index - 1, None, case_id)
+            if activity is not None and activity in my_events and activity == t.activity:
+                align = self.request_predecessor_alignment(t.prev_hash, log_index - 1, case_id)
                 candidate = align.add_sync_move(t.activity)
                 if not best_align or candidate.cost < best_align.cost:
                     best_align = candidate
 
-        if log_index >= 0 and activity is not None:
-            align = self.request_predecessor_alignment(entrypoint, log_index - 1, None, case_id)
-            candidate = align.add_log_move(activity)
+        if log_index >= 0:
+            log_activity = activity if activity is not None else "?"
+            align = self.request_predecessor_alignment(entrypoint, log_index - 1, case_id)
+            candidate = align.add_log_move(log_activity)
             if not best_align or candidate.cost < best_align.cost:
                 best_align = candidate
 
@@ -192,7 +202,6 @@ class Network:
         self,
         entrypoint: str,
         log_index: int,
-        activity: Optional[str],
         case_id: str
     ) -> Alignment:
         self.route_calls += 1
@@ -204,7 +213,7 @@ class Network:
             return Alignment([(None, "?") for _ in range(log_index + 1)])
 
         return self.participants[owner].calculate_alignment(
-            entrypoint, log_index, activity, case_id)
+            entrypoint, log_index, case_id)
 
 
 class Executor:
@@ -227,11 +236,15 @@ class Executor:
         return self._compute_prefix_alignment(case_id, activity, count - 1)
 
     def _compute_prefix_alignment(self, case_id: str, activity: str, log_index: int) -> Alignment:
+        pid = self.participant_mapping.get(activity)
+        if pid and pid in self.network.participants:
+            self.network.participants[pid]._store_activity_at(case_id, log_index, activity)
+
         all_nodes = self.network.get_all_nodes()
         best_align: Optional[Alignment] = None
         best_cost = float('inf')
         for node in all_nodes:
-            align = self.network.compute_min_cost_with_alignment(node, log_index, activity, case_id)
+            align = self.network.compute_min_cost_with_alignment(node, log_index, case_id)
             if align.cost < best_cost:
                 best_cost = align.cost
                 best_align = align
@@ -304,7 +317,7 @@ def load_validation_trace(splitter: EventLogSplitter, record_index: int, c: bool
 
 if __name__ == "__main__":
     splitter = EventLogSplitter("../gt/test/datasets/Sepsis.xes", location_key="org:group")
-    total_cases = 1
+    total_cases = 100
 
     training_sequences, mapping = load_training_data(splitter, 10, c=False)
     training_sequences_c, mapping_c = load_training_data(splitter, 10, c=True)
