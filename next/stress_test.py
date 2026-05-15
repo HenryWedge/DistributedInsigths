@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import hashlib
@@ -8,8 +9,7 @@ from typing import Dict, List, Tuple, Set, Optional
 
 from algo.utility.event_log_splitter import EventLogSplitter
 
-
-START_HASH = "START"
+START = "START"
 LOG_COST = 1
 MODEL_COST = 1
 
@@ -22,7 +22,7 @@ class Transition:
     def __init__(self, prev_hash: str, activity: str):
         self.prev_hash = prev_hash
         self.activity = activity
-        self.curr_hash = compute_hash(prev_hash, activity)
+        self.entrypoint = compute_hash(prev_hash, activity)
 
 
 class Alignment:
@@ -44,6 +44,14 @@ class Alignment:
                 c += MODEL_COST
         return c
 
+    def __str__(self) -> str:
+        lines = []
+        for m, l in self._moves:
+            left = m if m is not None else ">>"
+            right = l if l is not None else ">>"
+            lines.append(f"({left:20s}, {right})")
+        return f"Alignment(cost={self.cost}, len={len(self._moves)})\n" + "\n".join(lines)
+
     def add_sync_move(self, activity: str) -> 'Alignment':
         return Alignment(self._moves + [(activity, activity)])
 
@@ -54,66 +62,65 @@ class Alignment:
         return Alignment(self._moves + [(activity, None)])
 
     @staticmethod
-    def from_log_moves(events: List[str], log_idx: int) -> 'Alignment':
-        return Alignment([(None, e) for e in events[:log_idx + 1]])
+    def from_log_moves(events: List[str], log_index: int) -> 'Alignment':
+        return Alignment([(None, e) for e in events[:log_index + 1]])
 
 
 class Participant:
     def __init__(self, participant_id: str):
         self.id = participant_id
         self.transitions: List[Transition] = []
-        self._memo: Dict[Tuple[str, int], Alignment] = {}
+        self.cache: Dict[Tuple[str, int], Alignment] = {}
 
-    def add_transition(self, prev_hash: str, activity: str) -> str:
-        t = Transition(prev_hash, activity)
-        self.transitions.append(t)
-        return t.curr_hash
+    def add_transition(self, entrypoint: str, activity: str) -> str:
+        transition = Transition(entrypoint, activity)
+        self.transitions.append(transition)
+        return transition.entrypoint
 
-    def clear_memo(self):
-        self._memo.clear()
+    def get_transitions_by_entrypoint(self, entrypoint: str) -> List[Transition]:
+        return [t for t in self.transitions if t.entrypoint == entrypoint]
 
-    def get_transitions_by_curr_hash(self, curr_hash: str) -> List[Transition]:
-        return [t for t in self.transitions if t.curr_hash == curr_hash]
+    def calculate_alignment(
+        self,
+        entrypoint: str,
+        log_index: int,
+        events: List[str],
+        network: 'Network'
+    ) -> Alignment:
 
-    def min_cost_with_alignment(self, target_hash: str, log_idx: int,
-                                events: List[str], network: 'Network') -> Alignment:
-        if target_hash == START_HASH:
-            return Alignment.from_log_moves(events, log_idx)
+        if entrypoint == START:
+            return Alignment.from_log_moves(events, log_index)
 
-        key = (target_hash, log_idx)
-        if key in self._memo:
-            return self._memo[key]
+        key = (entrypoint, log_index)
+        if key in self.cache:
+            return self.cache[key]
 
-        local_transitions = self.get_transitions_by_curr_hash(target_hash)
+        local_transitions = self.get_transitions_by_entrypoint(entrypoint)
 
         best_align: Optional[Alignment] = None
-        best_cost = float('inf')
 
         for t in local_transitions:
-            align = network.compute_min_cost_with_alignment(t.prev_hash, log_idx, events, caller_id=self.id)
+            align = network.compute_min_cost_with_alignment(t.prev_hash, log_index, events, caller_id=self.id)
             candidate = align.add_model_move(t.activity)
-            if candidate.cost < best_cost:
-                best_cost = candidate.cost
+            if not best_align or candidate.cost < best_align.cost:
                 best_align = candidate
 
-            if log_idx >= 0 and events[log_idx] == t.activity:
-                align = network.compute_min_cost_with_alignment(t.prev_hash, log_idx - 1, events, caller_id=self.id)
+            if log_index >= 0 and events[log_index] == t.activity:
+                align = network.compute_min_cost_with_alignment(t.prev_hash, log_index - 1, events, caller_id=self.id)
                 candidate = align.add_sync_move(t.activity)
-                if candidate.cost < best_cost:
-                    best_cost = candidate.cost
+                if not best_align or candidate.cost < best_align.cost:
                     best_align = candidate
 
-        if log_idx >= 0:
-            align = network.compute_min_cost_with_alignment(target_hash, log_idx - 1, events, caller_id=self.id)
-            candidate = align.add_log_move(events[log_idx])
-            if candidate.cost < best_cost:
-                best_cost = candidate.cost
+        if log_index >= 0:
+            align = network.compute_min_cost_with_alignment(entrypoint, log_index - 1, events, caller_id=self.id)
+            candidate = align.add_log_move(events[log_index])
+            if not best_align or candidate.cost < best_align.cost:
                 best_align = candidate
 
-        if best_cost == float('inf'):
-            best_align = Alignment.from_log_moves(events, log_idx)
+        if not best_align:
+            best_align = Alignment.from_log_moves(events, log_index)
 
-        self._memo[key] = best_align
+        self.cache[key] = best_align
         return best_align
 
 
@@ -121,7 +128,7 @@ class Network:
     def __init__(self):
         self.event_stream: Dict[str, List[str]] = {}
         self.participants: Dict[str, Participant] = {}
-        self.hash_owner: Dict[str, str] = {}
+        self.entrypoint_participant_map: Dict[str, str] = {}
         self.route_calls = 0
         self.remote_calls = 0
 
@@ -130,12 +137,12 @@ class Network:
         self.remote_calls = 0
 
     def get_total_states(self) -> int:
-        return sum(len(p._memo) for p in self.participants.values())
+        return sum(len(p.cache) for p in self.participants.values())
 
     def register_participant(self, participant: Participant):
         self.participants[participant.id] = participant
-        for t in participant.transitions:
-            self.hash_owner[t.curr_hash] = participant.id
+        for transition in participant.transitions:
+            self.entrypoint_participant_map[transition.entrypoint] = participant.id
 
     def record_event(self, case_id: str, activity: str):
         if case_id not in self.event_stream:
@@ -145,14 +152,14 @@ class Network:
     def get_events(self, case_id: str) -> List[str]:
         return self.event_stream.get(case_id, [])
 
-    def get_all_curr_hashes(self) -> Set[str]:
+    def get_current_entrypoints(self) -> Set[str]:
         hashes = set()
         for p in self.participants.values():
             for t in p.transitions:
-                hashes.add(t.curr_hash)
+                hashes.add(t.entrypoint)
         return hashes
 
-    def get_all_prev_hashes(self) -> Set[str]:
+    def get_previous_entrypoints(self) -> Set[str]:
         hashes = set()
         for p in self.participants.values():
             for t in p.transitions:
@@ -160,46 +167,47 @@ class Network:
         return hashes
 
     def get_sink_nodes(self) -> Set[str]:
-        all_curr = self.get_all_curr_hashes()
-        all_prev = self.get_all_prev_hashes()
+        all_curr = self.get_current_entrypoints()
+        all_prev = self.get_previous_entrypoints()
         return all_curr - all_prev
 
     def get_all_nodes(self) -> Set[str]:
-        nodes = {START_HASH}
-        nodes.update(self.get_all_curr_hashes())
+        nodes = {START}
+        nodes.update(self.get_current_entrypoints())
         return nodes
 
-    def compute_min_cost_with_alignment(self, target_hash: str, log_idx: int,
-                                        events: List[str],
-                                        caller_id: Optional[str] = None) -> Alignment:
+    def compute_min_cost_with_alignment(
+        self,
+        entrypoint: str,
+        log_index: int,
+        events: List[str],
+        caller_id: Optional[str] = None
+    ) -> Alignment:
         self.route_calls += 1
-        if target_hash == START_HASH:
-            return Alignment.from_log_moves(events, log_idx)
+        if entrypoint == START:
+            return Alignment.from_log_moves(events, log_index)
 
-        owner = self.hash_owner.get(target_hash)
+        owner = self.entrypoint_participant_map.get(entrypoint)
         if owner is None:
-            return Alignment.from_log_moves(events, log_idx)
+            return Alignment.from_log_moves(events, log_index)
 
         if caller_id is not None and owner != caller_id:
             self.remote_calls += 1
 
-        return self.participants[owner].min_cost_with_alignment(
-            target_hash, log_idx, events, self)
+        return self.participants[owner].calculate_alignment(
+            entrypoint, log_index, events, self)
 
     def compute_prefix_alignment(self, case_id: str) -> Alignment:
         events = self.get_events(case_id)
 
-        for p in self.participants.values():
-            p.clear_memo()
-
-        log_idx = len(events) - 1
+        log_index = len(events) - 1
         all_nodes = self.get_all_nodes()
 
         best_align: Optional[Alignment] = None
         best_cost = float('inf')
 
         for node in all_nodes:
-            align = self.compute_min_cost_with_alignment(node, log_idx, events)
+            align = self.compute_min_cost_with_alignment(node, log_index, events)
             if align.cost < best_cost:
                 best_cost = align.cost
                 best_align = align
@@ -207,19 +215,21 @@ class Network:
         return best_align
 
 
-def build_network(sequences: List[List[str]],
-                  participant_mapping: Dict[str, str]) -> Network:
+def build_network(
+    sequences: List[List[str]],
+    participant_mapping: Dict[str, str]
+) -> Network:
     network = Network()
 
     for seq in sequences:
-        prev = START_HASH
+        prev = START
         for activity in seq:
             pid = participant_mapping[activity]
             if pid not in network.participants:
                 network.register_participant(Participant(pid))
             curr = network.participants[pid].add_transition(prev, activity)
-            if curr not in network.hash_owner:
-                network.hash_owner[curr] = pid
+            if curr not in network.entrypoint_participant_map:
+                network.entrypoint_participant_map[curr] = pid
             prev = curr
 
     return network
@@ -268,7 +278,8 @@ def load_validation_trace(splitter: EventLogSplitter, record_index: int, c: bool
 
 if __name__ == "__main__":
     splitter = EventLogSplitter("../gt/test/datasets/Sepsis.xes", location_key="org:group")
-    total_cases = len(splitter.case_ids)
+    # total_cases = len(splitter.case_ids)
+    total_cases = 100
 
     training_sequences, mapping = load_training_data(splitter, 10, c=False)
     training_sequences_c, mapping_c = load_training_data(splitter, 10, c=True)
@@ -298,18 +309,21 @@ if __name__ == "__main__":
 
         n_processed += 1
         case_id = f"case_{idx}"
-        for event in trace:
-            network.record_event(case_id, event)
-        for event in trace_c:
-            network_c.record_event(case_id, event)
 
         network.reset_stats()
         network_c.reset_stats()
 
-        dec_align = network.compute_prefix_alignment(case_id)
-        cen_align = network_c.compute_prefix_alignment(case_id)
-        dec_cost = dec_align.cost
-        cen_cost = cen_align.cost
+        case_fail = None
+        for ei in range(len(trace)):
+            network.record_event(case_id, trace[ei])
+            network_c.record_event(case_id, trace_c[ei])
+
+            dec_align = network.compute_prefix_alignment(case_id)
+            cen_align = network_c.compute_prefix_alignment(case_id)
+
+            if dec_align.cost != cen_align.cost:
+                case_fail = (ei, dec_align, cen_align)
+                break
 
         total_route += network.route_calls
         total_remote += network.remote_calls
@@ -317,28 +331,30 @@ if __name__ == "__main__":
         total_route_c += network_c.route_calls
         total_states_c += network_c.get_total_states()
 
-        status = "OK" if dec_cost == cen_cost else "FAIL"
-        sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={dec_cost:3d}/{cen_cost:3d}  events={len(trace):3d}  {status}")
+        final_cost = dec_align.cost
+        status = "OK" if case_fail is None else "FAIL"
+        sys.stdout.write(f"\r  [{idx:4d}/{total_cases}] cost={final_cost:3d}  events={len(trace):3d}  {status}")
         sys.stdout.flush()
 
-        if dec_cost != cen_cost:
-            first_fail = (idx, trace, trace_c, dec_cost, cen_cost, dec_align, cen_align)
+        if case_fail is not None:
+            ei, dec_align, cen_align = case_fail
+            first_fail = (idx, trace[:ei + 1], trace_c[:ei + 1], dec_align, cen_align)
             print("\n\nMISMATCH FOUND!")
             break
 
     print()
 
     if first_fail:
-        idx, trace, trace_c, dec_cost, cen_cost, dec_align, cen_align = first_fail
+        idx, trace, trace_c, dec_align, cen_align = first_fail
         print(f"\nIndex: {idx}")
-        print(f"Trace ({len(trace)} events):")
+        print(f"Trace prefix ({len(trace)} events, up to failing event):")
         for i, a in enumerate(trace):
             print(f"  {i}: {a}")
-        print(f"\nCentralized trace ({len(trace_c)} events):")
+        print(f"\nCentralized trace prefix ({len(trace_c)} events):")
         for i, a in enumerate(trace_c):
             print(f"  {i}: {a}")
-        print(f"\nDecentralized cost: {dec_cost}")
-        print(f"Centralized cost: {cen_cost}")
+        print(f"\nDecentralized cost: {dec_align.cost}")
+        print(f"Centralized cost: {cen_align.cost}")
         print(f"\nDecentralized alignment:")
         for i, (m, l) in enumerate(dec_align.moves):
             print(f"  {i}: {m or '>>':40s} | {l or '>>'}")
