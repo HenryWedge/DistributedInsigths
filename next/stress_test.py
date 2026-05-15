@@ -244,6 +244,25 @@ class Participant:
             return Alignment([(None, "?") for _ in range(log_index + 1)])
         return self.reconstruct_alignment(entrypoint, log_index, case_id)
 
+    def process_event(self, event: Event, log_index: int) -> Alignment:
+        self.receive_event(event.case_id, log_index, event.activity)
+
+        best_cost = 10**9
+        best_pid = None
+        best_entrypoint = None
+        for participant in self.network.participants.values():
+            cost, entrypoint = participant.compute_best_cost(log_index, event.case_id)
+            if cost < best_cost:
+                best_cost = cost
+                best_pid = participant.id
+                best_entrypoint = entrypoint
+
+        if best_pid and best_entrypoint is not None:
+            return self.network.participants[best_pid].compute_best_alignment(
+                log_index, event.case_id, best_entrypoint
+            )
+        return Alignment([(None, "?") for _ in range(log_index + 1)])
+
 
 class Network:
     def __init__(self):
@@ -281,23 +300,10 @@ class Executor:
         log_index = count - 1
 
         pid = self.participant_mapping.get(event.activity)
-        if pid and pid in self.network.participants:
-            self.network.participants[pid].receive_event(event.case_id, log_index, event.activity)
-
-        best_participant = None
-        best_entrypoint = None
-        best_cost = 10**9
-
-        for participant in self.network.participants.values():
-            cost, entrypoint = participant.compute_best_cost(log_index, event.case_id)
-            if cost < best_cost:
-                best_cost = cost
-                best_participant = participant
-                best_entrypoint = entrypoint
-
-        if best_participant and best_entrypoint is not None:
-            return best_participant.compute_best_alignment(log_index, event.case_id, best_entrypoint)
-        return Alignment([(None, "?") for _ in range(log_index + 1)])
+        participant = self.network.get_participant(pid)
+        if participant is None:
+            return Alignment([(None, "?") for _ in range(log_index + 1)])
+        return participant.process_event(event, log_index)
 
 
 def build_network(
