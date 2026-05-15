@@ -239,11 +239,6 @@ class Participant:
                 best_entrypoint = transition.entrypoint
         return best_cost, best_entrypoint
 
-    def compute_best_alignment(self, log_index: int, case_id: str, entrypoint: Optional[str] = None) -> Alignment:
-        if entrypoint is None:
-            return Alignment([(None, "?") for _ in range(log_index + 1)])
-        return self.reconstruct_alignment(entrypoint, log_index, case_id)
-
     def process_event(self, event: Event, log_index: int) -> Alignment:
         self.receive_event(event.case_id, log_index, event.activity)
 
@@ -258,8 +253,8 @@ class Participant:
                 best_entrypoint = entrypoint
 
         if best_pid and best_entrypoint is not None:
-            return self.network.participants[best_pid].compute_best_alignment(
-                log_index, event.case_id, best_entrypoint
+            return self.network.participants[best_pid].reconstruct_alignment(
+                best_entrypoint, log_index, event.case_id
             )
         return Alignment([(None, "?") for _ in range(log_index + 1)])
 
