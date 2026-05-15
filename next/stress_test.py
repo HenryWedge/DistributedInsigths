@@ -16,7 +16,6 @@ MODEL_COST = 1
 def compute_hash(prev_hash: str, activity: str) -> str:
     return hashlib.sha256((prev_hash + activity).encode()).hexdigest()
 
-
 class Transition:
     def __init__(self, prev_hash: str, activity: str):
         self.prev_hash = prev_hash
@@ -92,14 +91,13 @@ class Participant:
         log_index: int,
         case_id: str
     ) -> Alignment:
-
         self.network.route_calls += 1
         if entrypoint == START:
-            return Alignment([(None, "?") for _ in range(log_index + 1)])
+            return Alignment([(None, None) for _ in range(log_index + 1)])
 
         owner = self.network.entrypoint_participant_map.get(entrypoint)
         if owner is None:
-            return Alignment([(None, "?") for _ in range(log_index + 1)])
+            return Alignment([(None, None) for _ in range(log_index + 1)])
 
         if owner != self.id:
             self.network.remote_calls += 1
@@ -118,38 +116,31 @@ class Participant:
             return Alignment([(None, "?") for _ in range(log_index + 1)])
 
         activity = self._get_activity_at(case_id, log_index)
-
         key = (entrypoint, log_index)
         if key in self.cache:
             return self.cache[key]
 
         local_transitions = self.get_transitions_by_entrypoint(entrypoint)
-        my_events = self.event_stream.get(case_id, [])
-
-        best_align: Optional[Alignment] = None
+        local_events = self.event_stream.get(case_id, [])
+        candidate_alignments = []
 
         for t in local_transitions:
             align = self.request_predecessor_alignment(t.prev_hash, log_index, case_id)
             candidate = align.add_model_move(t.activity)
-            if not best_align or candidate.cost < best_align.cost:
-                best_align = candidate
+            candidate_alignments.append(candidate)
 
-            if activity is not None and activity in my_events and activity == t.activity:
+            if activity is not None and activity in local_events and activity == t.activity:
                 align = self.request_predecessor_alignment(t.prev_hash, log_index - 1, case_id)
                 candidate = align.add_sync_move(t.activity)
-                if not best_align or candidate.cost < best_align.cost:
-                    best_align = candidate
+                candidate_alignments.append(candidate)
 
         if log_index >= 0:
-            log_activity = activity if activity is not None else "?"
+            log_activity = activity if activity is not None else None
             align = self.request_predecessor_alignment(entrypoint, log_index - 1, case_id)
             candidate = align.add_log_move(log_activity)
-            if not best_align or candidate.cost < best_align.cost:
-                best_align = candidate
+            candidate_alignments.append(candidate)
 
-        if not best_align:
-            best_align = Alignment([(None, "?") for _ in range(log_index + 1)])
-
+        best_align = min(candidate_alignments, key=lambda alignment: alignment.cost)
         self.cache[key] = best_align
         return best_align
 
@@ -174,46 +165,14 @@ class Network:
         for transition in participant.transitions:
             self.entrypoint_participant_map[transition.entrypoint] = participant.id
 
-    def get_current_entrypoints(self) -> Set[str]:
-        hashes = set()
-        for p in self.participants.values():
-            for t in p.transitions:
-                hashes.add(t.entrypoint)
-        return hashes
-
-    def get_previous_entrypoints(self) -> Set[str]:
-        hashes = set()
-        for p in self.participants.values():
-            for t in p.transitions:
-                hashes.add(t.prev_hash)
-        return hashes
-
-    def get_sink_nodes(self) -> Set[str]:
-        all_curr = self.get_current_entrypoints()
-        all_prev = self.get_previous_entrypoints()
-        return all_curr - all_prev
-
     def get_all_nodes(self) -> Set[str]:
         nodes = {START}
-        nodes.update(self.get_current_entrypoints())
+        entrypoints = set()
+        for p in self.participants.values():
+            for t in p.transitions:
+                entrypoints.add(t.entrypoint)
+        nodes.update(entrypoints)
         return nodes
-
-    def compute_min_cost_with_alignment(
-        self,
-        entrypoint: str,
-        log_index: int,
-        case_id: str
-    ) -> Alignment:
-        self.route_calls += 1
-        if entrypoint == START:
-            return Alignment([(None, "?") for _ in range(log_index + 1)])
-
-        owner = self.entrypoint_participant_map.get(entrypoint)
-        if owner is None:
-            return Alignment([(None, "?") for _ in range(log_index + 1)])
-
-        return self.participants[owner].calculate_alignment(
-            entrypoint, log_index, case_id)
 
 
 class Executor:
@@ -233,7 +192,7 @@ class Executor:
                 p.event_stream[case_id] = []
             p.event_stream[case_id].append(activity)
 
-        return self._compute_prefix_alignment(case_id, activity, count - 1)
+        return self._compute_prefix_alignment(case_id, activity, count-1)
 
     def _compute_prefix_alignment(self, case_id: str, activity: str, log_index: int) -> Alignment:
         pid = self.participant_mapping.get(activity)
@@ -244,12 +203,17 @@ class Executor:
         best_align: Optional[Alignment] = None
         best_cost = float('inf')
         for node in all_nodes:
-            align = self.network.compute_min_cost_with_alignment(node, log_index, case_id)
+            owner = self.network.entrypoint_participant_map.get(node)
+            if owner is None:
+                align = Alignment([(None, None) for _ in range(log_index + 1)])
+            else:
+                align = self.network.participants[owner].calculate_alignment(
+                    node, log_index, case_id)
+
             if align.cost < best_cost:
                 best_cost = align.cost
                 best_align = align
-        print(best_align)
-        print()
+
         return best_align
 
 
