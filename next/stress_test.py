@@ -192,26 +192,21 @@ class Executor:
                 p.event_stream[case_id] = []
             p.event_stream[case_id].append(activity)
 
-        return self._compute_prefix_alignment(case_id, activity, count-1)
-
-    def _compute_prefix_alignment(self, case_id: str, activity: str, log_index: int) -> Alignment:
+        log_index = count - 1
         pid = self.participant_mapping.get(activity)
         if pid and pid in self.network.participants:
             self.network.participants[pid]._store_activity_at(case_id, log_index, activity)
 
         all_nodes = self.network.get_all_nodes()
         best_align: Optional[Alignment] = None
-        best_cost = float('inf')
         for node in all_nodes:
             owner = self.network.entrypoint_participant_map.get(node)
             if owner is None:
                 align = Alignment([(None, None) for _ in range(log_index + 1)])
             else:
-                align = self.network.participants[owner].calculate_alignment(
-                    node, log_index, case_id)
+                align = self.network.participants[owner].calculate_alignment(node, log_index, case_id)
 
-            if align.cost < best_cost:
-                best_cost = align.cost
+            if not best_align or align.cost < best_align.cost:
                 best_align = align
 
         return best_align
